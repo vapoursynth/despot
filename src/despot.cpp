@@ -1,9 +1,9 @@
 /*
     DeSpot - Conditional Temporal Despotting Filter for Avisynth 2.5
 
-	Main file
+    Main file
 
-	Version 3.5.3 October 23, 2008.
+    Version 3.5.3 October 23, 2008.
 
 
 
@@ -38,139 +38,140 @@ http://kevin.atkinson.dhs.org/temporal_median/
 #include <cmath>
 
 struct WorkingData {
-  int num = -1;
-  BYTE * noise = nullptr;
-  BYTE * motion = nullptr;
-  Segment * segments = nullptr;
-  void init(size_t);
-  ~WorkingData();
+    int num = -1;
+    BYTE *noise = nullptr;
+    BYTE *motion = nullptr;
+    Segment *segments = nullptr;
+    void init(size_t);
+    ~WorkingData();
 };
 
 struct Frame {
-  int num = -1;
-  WorkingData * data = nullptr;
-  PVideoFrame frame;
-  const BYTE * y = nullptr; // Y plane of frame
-  int pitch = 0; // pitch of Y plane
-  BYTE * noise = nullptr;
-  BYTE * motion = 0;
-  Segments segments;
+    int num = -1;
+    WorkingData *data = nullptr;
+    PVideoFrame frame;
+    const BYTE *y = nullptr; // Y plane of frame
+    int pitch = 0; // pitch of Y plane
+    BYTE *noise = nullptr;
+    BYTE *motion = 0;
+    Segments segments;
 };
 
-struct Buffer
-{
-  PClip childclip;
-  WorkingData data_cache[2];
-  Frame frame_cache[4];
-  BYTE * motion; // summary motion
-  int num_frames;
+struct Buffer {
+    PClip childclip;
+    WorkingData data_cache[2];
+    Frame frame_cache[4];
+    BYTE *motion; // summary motion
+    int num_frames;
 
-  Frame * get_frame(int n, IScriptEnvironment* env)
-    {if (n < 0 || n >= num_frames) return 0;
-     Frame * f = frame_cache + n % 4;
-     if (f->num != n) ready_frame(n, f, env);
-     return f;}
+    Frame *get_frame(int n, IScriptEnvironment *env) {
+        if (n < 0 || n >= num_frames) return 0;
+        Frame *f = frame_cache + n % 4;
+        if (f->num != n) ready_frame(n, f, env);
+        return f;
+    }
 
-  void alloc_noise(Frame * f)
-    {if (!f->data) ready_data(f);
-     f->noise = f->data->noise;}
+    void alloc_noise(Frame *f) {
+        if (!f->data) ready_data(f);
+        f->noise = f->data->noise;
+    }
 
-  void alloc_motion(Frame * f)
-    {if (!f->data) ready_data(f);
-     f->motion = f->data->motion;}
+    void alloc_motion(Frame *f) {
+        if (!f->data) ready_data(f);
+        f->motion = f->data->motion;
+    }
 
-  void alloc_segments(Frame * f)
-    {if (!f->data) ready_data(f);
-     f->segments.data = f->data->segments;
-     f->segments.clear();}
+    void alloc_segments(Frame *f) {
+        if (!f->data) ready_data(f);
+        f->segments.data = f->data->segments;
+        f->segments.clear();
+    }
 
-  void ready_frame(int n, Frame * f, IScriptEnvironment* env);
-  void ready_data(Frame * f);
-  void free_frame(Frame * f);
-  void free_data(WorkingData *d);
+    void ready_frame(int n, Frame *f, IScriptEnvironment *env);
+    void ready_data(Frame *f);
+    void free_frame(Frame *f);
+    void free_data(WorkingData *d);
 };
 
 
 class Filter : public GenericVideoFilter {
-	PClip extmask;
+    PClip extmask;
 
-	Parms Params;
-	Buffer buf;
-	FILE *	outfile_ptr;
+    Parms Params;
+    Buffer buf;
+    FILE *outfile_ptr;
 
-	void find_segments(int fn, IScriptEnvironment* env);
-	void find_motion_prev_cur(int fn, IScriptEnvironment* env);
-	void find_motion_prev_next(int fn, IScriptEnvironment* env);
+    void find_segments(int fn, IScriptEnvironment *env);
+    void find_motion_prev_cur(int fn, IScriptEnvironment *env);
+    void find_motion_prev_next(int fn, IScriptEnvironment *env);
 
-	void print_segments (int fn, IScriptEnvironment* env);
+    void print_segments(int fn, IScriptEnvironment *env);
 
 public:
-	Filter (PClip _child, PClip _extmask, Parms _Params, IScriptEnvironment* env); //v3.5
-  ~Filter();
-	PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);
+    Filter(PClip _child, PClip _extmask, Parms _Params, IScriptEnvironment *env); //v3.5
+    ~Filter();
+    PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env);
 };
 
 
-Filter::Filter(PClip _child, PClip _extmask, Parms _Params, IScriptEnvironment* env) :
-GenericVideoFilter(_child), extmask(_extmask), Params(_Params), outfile_ptr (0) {
+Filter::Filter(PClip _child, PClip _extmask, Parms _Params, IScriptEnvironment *env) :
+    GenericVideoFilter(_child), extmask(_extmask), Params(_Params), outfile_ptr(0) {
 
-	if (!vi.IsYV12() && !vi.IsYV16() && !vi.IsYV24())
+    if (!vi.IsYV12() && !vi.IsYV16() && !vi.IsYV24())
         env->ThrowError("DeSpot: input to filter must be in YV12, YV16 or YV24!");
 
-	buf.childclip = child;
-	buf.num_frames = vi.num_frames;
-	Params.height = vi.height;
-	Params.width  = vi.width;
-	Params.pitch = ((vi.width+7)/8)*8;
-	Params.size   = Params.height * Params.pitch;
+    buf.childclip = child;
+    buf.num_frames = vi.num_frames;
+    Params.height = vi.height;
+    Params.width = vi.width;
+    Params.pitch = ((vi.width + 7) / 8) * 8;
+    Params.size = Params.height * Params.pitch;
 
-	buf.data_cache[0].init(Params.size);
-	buf.data_cache[1].init(Params.size);
-	buf.motion =  (BYTE *)malloc(Params.size);
+    buf.data_cache[0].init(Params.size);
+    buf.data_cache[1].init(Params.size);
+    buf.motion = (BYTE *)malloc(Params.size);
 
-	if (! Params.outfilename.empty ())
-	{
-		const double diag = sqrt (double (vi.width) * vi.width + double (vi.height) * vi.height);
-		const int    thickness = int (floor (diag / 860 + 0.75));
-		outfile_ptr = fopen (Params.outfilename.c_str (), "w");
-		fprintf (outfile_ptr,
-"[Script Info]\n"
-"Title: DeSpot automatically generated file\n"
-"ScriptType: v4.00+\n"
-"WrapStyle: 0\n"
-"PlayResX: %d\n"
-"PlayResY: %d\n"
-"ScaledBorderAndShadow: yes\n"
-"Video Aspect Ratio: 0\n"
-"Video Zoom: 8\n"
-"Video Position: 0\n"
-"\n"
-"[V4+ Styles]\n"
-"Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-"Style: Mask,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1\n"
-"Style: Outline,Arial,20,&HFFFFFFFF,&H000000FF,&H00FF00FF,&H00000000,0,0,0,0,100,100,0,0,1,%d,0,7,0,0,0,1\n"
-"\n"
-"[Events]\n"
-"Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
-"Comment: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,--- Templates for manual editing ---\n"
-"Dialogue: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,{\\pos(100,100)\\fscx100\\fscy100\\p1}m -4 -4 l 4 -4 4 4 -4 4{\\p0}\n"
-"Dialogue: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,{\\pos(100,100)\\fscx100\\fscy100\\p1}m -6 -6 l 6 -6 6 6 -6 6{\\p0}\n"
-"Dialogue: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,{\\pos(100,100)\\fscx100\\fscy100\\p1}m -8 -8 l 8 -8 8 8 -8 8{\\p0}\n"
-"Comment: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,--- Masks ---\n",
-			vi.width,
-			vi.height,
-			thickness
-		);
-	}
+    if (!Params.outfilename.empty()) {
+        const double diag = sqrt(double(vi.width) * vi.width + double(vi.height) * vi.height);
+        const int    thickness = int(floor(diag / 860 + 0.75));
+        outfile_ptr = fopen(Params.outfilename.c_str(), "w");
+        fprintf(outfile_ptr,
+            "[Script Info]\n"
+            "Title: DeSpot automatically generated file\n"
+            "ScriptType: v4.00+\n"
+            "WrapStyle: 0\n"
+            "PlayResX: %d\n"
+            "PlayResY: %d\n"
+            "ScaledBorderAndShadow: yes\n"
+            "Video Aspect Ratio: 0\n"
+            "Video Zoom: 8\n"
+            "Video Position: 0\n"
+            "\n"
+            "[V4+ Styles]\n"
+            "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+            "Style: Mask,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1\n"
+            "Style: Outline,Arial,20,&HFFFFFFFF,&H000000FF,&H00FF00FF,&H00000000,0,0,0,0,100,100,0,0,1,%d,0,7,0,0,0,1\n"
+            "\n"
+            "[Events]\n"
+            "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+            "Comment: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,--- Templates for manual editing ---\n"
+            "Dialogue: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,{\\pos(100,100)\\fscx100\\fscy100\\p1}m -4 -4 l 4 -4 4 4 -4 4{\\p0}\n"
+            "Dialogue: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,{\\pos(100,100)\\fscx100\\fscy100\\p1}m -6 -6 l 6 -6 6 6 -6 6{\\p0}\n"
+            "Dialogue: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,{\\pos(100,100)\\fscx100\\fscy100\\p1}m -8 -8 l 8 -8 8 8 -8 8{\\p0}\n"
+            "Comment: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,--- Masks ---\n",
+            vi.width,
+            vi.height,
+            thickness
+        );
+    }
 }
 
 Filter::~Filter() {
-	free(buf.motion);
-	if (outfile_ptr != 0)
-	{
-		fclose (outfile_ptr);
-		outfile_ptr = 0;
-	}
+    free(buf.motion);
+    if (outfile_ptr != 0) {
+        fclose(outfile_ptr);
+        outfile_ptr = 0;
+    }
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -178,333 +179,277 @@ Filter::~Filter() {
 // Filter
 //
 
-void Filter::find_segments(int fn, IScriptEnvironment* env ) // added in v.3.0
+void Filter::find_segments(int fn, IScriptEnvironment *env) // added in v.3.0
 {
-  Frame * p = buf.get_frame(fn-1, env);
-  Frame * c = buf.get_frame(fn, env);
-  buf.alloc_noise(c);
-  buf.alloc_segments(c);
-  Frame * n = buf.get_frame(fn+1, env);
-  if (p && n) {
-    ::find_outliers(p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, c->noise, Params);
-    ::find_sizes(c->noise, c->segments, Params);
-  }
+    Frame *p = buf.get_frame(fn - 1, env);
+    Frame *c = buf.get_frame(fn, env);
+    buf.alloc_noise(c);
+    buf.alloc_segments(c);
+    Frame *n = buf.get_frame(fn + 1, env);
+    if (p && n) {
+        ::find_outliers(p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, c->noise, Params);
+        ::find_sizes(c->noise, c->segments, Params);
+    }
 }
 
-void Filter::find_motion_prev_cur(int fn, IScriptEnvironment* env)
-{
-//  clog << "Find Motion: " << fn << endl;
-  Frame * p = buf.get_frame(fn-1, env);
-  Frame * c = buf.get_frame(fn, env);
-  buf.alloc_motion(c);
-   if (p && c) {
-	 ::find_motion(p->y, p->pitch, c->y, c->pitch, c->motion, Params);
-   }
+void Filter::find_motion_prev_cur(int fn, IScriptEnvironment *env) {
+    //  clog << "Find Motion: " << fn << endl;
+    Frame *p = buf.get_frame(fn - 1, env);
+    Frame *c = buf.get_frame(fn, env);
+    buf.alloc_motion(c);
+    if (p && c) {
+        ::find_motion(p->y, p->pitch, c->y, c->pitch, c->motion, Params);
+    }
 
 }
 
-void Filter::find_motion_prev_next(int fn, IScriptEnvironment* env) // added in 2.1
+void Filter::find_motion_prev_next(int fn, IScriptEnvironment *env) // added in 2.1
 {
-//  clog << "Find Motion p-n: " << fn << endl;
-  Frame * p = buf.get_frame(fn-1, env);
-  Frame * c = buf.get_frame(fn, env);
-  Frame * n = buf.get_frame(fn+1, env);
-  buf.alloc_motion(c);
-  ::find_motion(p->y, p->pitch, n->y, n->pitch, c->motion, Params);
-//  ::motion_denoise(c->motion, Params);
+    //  clog << "Find Motion p-n: " << fn << endl;
+    Frame *p = buf.get_frame(fn - 1, env);
+    Frame *c = buf.get_frame(fn, env);
+    Frame *n = buf.get_frame(fn + 1, env);
+    buf.alloc_motion(c);
+    ::find_motion(p->y, p->pitch, n->y, n->pitch, c->motion, Params);
+    //  ::motion_denoise(c->motion, Params);
 }
-void	Filter::print_segments (int fn, IScriptEnvironment* env)
-{
-  const int r = (Params.mc_flag) ? 3 : 1;
-  const int fnd = fn / r;
-  if (fn == fnd * r + ((r - 1 ) >> 1))
-  {
-	  Frame * c = buf.get_frame(fn, env);
-	  const Segments & segs = c->segments;
+void	Filter::print_segments(int fn, IScriptEnvironment *env) {
+    const int r = (Params.mc_flag) ? 3 : 1;
+    const int fnd = fn / r;
+    if (fn == fnd * r + ((r - 1) >> 1)) {
+        Frame *c = buf.get_frame(fn, env);
+        const Segments &segs = c->segments;
 
-	  const int w = c->frame->GetRowSize ();
-	  const int h = c->frame->GetHeight ();
+        const int w = c->frame->GetRowSize();
+        const int h = c->frame->GetHeight();
 
-	  const double fps = double (vi.fps_numerator) / double (vi.fps_denominator * r);
+        const double fps = double(vi.fps_numerator) / double(vi.fps_denominator * r);
 
-	  ::print_segments (segs, outfile_ptr, fnd, fps, w, h, Params.spotmax1, Params.spotmax2);
-  }
+        ::print_segments(segs, outfile_ptr, fnd, fps, w, h, Params.spotmax1, Params.spotmax2);
+    }
 }
 
 // ********************************************************************************
 
-PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment* env )
-{
-//  clog << "Exec: " << fn << endl;
-  Frame * p = buf.get_frame(fn-1, env);
-  Frame * c = buf.get_frame(fn, env);
-  Frame * n = buf.get_frame(fn+1, env);
+PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment *env) {
+    Frame *p = buf.get_frame(fn - 1, env);
+    Frame *c = buf.get_frame(fn, env);
+    Frame *n = buf.get_frame(fn + 1, env);
 
-  constexpr Exec *exec_median[3] = { cond_median, map_outliers, map_outliers };
-  constexpr Exec *exec_pixel[3] = { remove_outliers, mark_outliers, map_outliers };
+    constexpr Exec *exec_median[3] = { cond_median, map_outliers, map_outliers };
+    constexpr Exec *exec_pixel[3] = { remove_outliers, mark_outliers, map_outliers };
 
-  if (p && n)
-  {
-		PVideoFrame fout = env->NewVideoFrame(vi);
-		BYTE * fout_y = fout->GetWritePtr();
-		int opitch = fout->GetPitch();
-//		clog << "Render " << "Frame " << ": " << fn << endl;
+    if (p && n) {
+        PVideoFrame fout = env->NewVideoFrame(vi);
+        BYTE *fout_y = fout->GetWritePtr();
+        int opitch = fout->GetPitch();
 
- 		if (Params.median)
-		{ // simple median mode (old)
-			if (!c->motion)
-			{
-				find_motion_prev_cur(fn, env);
-				motion_denoise(c->motion, Params);
-			}
-			if (!n->motion)
-			{
-				find_motion_prev_cur(fn+1, env);
-				motion_denoise(n->motion, Params);
-			}
-			motion_merge(c->motion, n->motion, buf.motion, Params);
-			(*exec_median[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
-		}
-		else if (Params.motpn && Params.seg != 0)
-		{ // motion prev-next,  segments mode
-			// new mode - find motion prev to next
-			if (!c->motion)
-			{
-				find_motion_prev_next(fn, env);
-				motion_denoise(c->motion, Params);
-				motion_scene(c->motion, Params);
-				if (extmask)
-				{
-					PVideoFrame fextmask = extmask->GetFrame(fn, env);
-					add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), c->motion, Params.pitch, Params.width, Params.height);
-				}
-			}
+        if (Params.median) { // simple median mode (old)
+            if (!c->motion) {
+                find_motion_prev_cur(fn, env);
+                motion_denoise(c->motion, Params);
+            }
+            if (!n->motion) {
+                find_motion_prev_cur(fn + 1, env);
+                motion_denoise(n->motion, Params);
+            }
+            motion_merge(c->motion, n->motion, buf.motion, Params);
+            (*exec_median[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
+        } else if (Params.motpn && Params.seg != 0) { // motion prev-next,  segments mode
+            // new mode - find motion prev to next
+            if (!c->motion) {
+                find_motion_prev_next(fn, env);
+                motion_denoise(c->motion, Params);
+                motion_scene(c->motion, Params);
+                if (extmask) {
+                    PVideoFrame fextmask = extmask->GetFrame(fn, env);
+                    add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), c->motion, Params.pitch, Params.width, Params.height);
+                }
+            }
 
-			if (!c->noise)
-			{
-				find_segments(fn, env);
-				reject_on_motion(c->segments, c->motion, Params);
-			}
+            if (!c->noise) {
+                find_segments(fn, env);
+                reject_on_motion(c->segments, c->motion, Params);
+            }
 
-			if (Params.show == 0)
-			{
-				env->BitBlt(fout_y, opitch, c->y, c->pitch, Params.width, Params.height);
-				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
-				if (Params.tsmooth>0)temporal_smooth(c->segments, p->y, p->pitch, n->y, n->pitch, fout_y, opitch, c->noise, c->motion, Params);
-			}
-			else if (Params.show == 1)
-			{
-				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
-				mark_outliers(p->y, p->pitch, c->y,c->pitch,  c->noise, c->motion, n->y, n->pitch, fout_y, opitch, Params);
-			}
-			else
-			{ // =2
-				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
-				map_outliers(p->y, p->pitch,c->y, c->pitch,c->noise, c->motion, n->y, n->pitch,fout_y, opitch,Params);
-			}
+            if (Params.show == 0) {
+                env->BitBlt(fout_y, opitch, c->y, c->pitch, Params.width, Params.height);
+                remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
+                if (Params.tsmooth > 0)temporal_smooth(c->segments, p->y, p->pitch, n->y, n->pitch, fout_y, opitch, c->noise, c->motion, Params);
+            } else if (Params.show == 1) {
+                remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
+                mark_outliers(p->y, p->pitch, c->y, c->pitch, c->noise, c->motion, n->y, n->pitch, fout_y, opitch, Params);
+            } else { // =2
+                remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
+                map_outliers(p->y, p->pitch, c->y, c->pitch, c->noise, c->motion, n->y, n->pitch, fout_y, opitch, Params);
+            }
 
-			if (outfile_ptr != 0)
-			{
-				print_segments (fn, env);
-			}
-		}
-		else if (Params.motpn && Params.seg == 0)
-		{ // motion prev-next, no segments mode
-			// new mode - find motion prev to next - added in v.3.0
-			if (!c->motion)
-			{
-				find_motion_prev_next(fn, env);
-				motion_denoise(c->motion, Params);
-				motion_scene(c->motion, Params); // added in v.3.3
-				if (extmask) // added in v3.5
-				{
-					PVideoFrame fextmask = extmask->GetFrame(fn, env);
-					add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), c->motion, Params.pitch, Params.width, Params.height);
-				}
-			}
+            if (outfile_ptr != 0) {
+                print_segments(fn, env);
+            }
+        } else if (Params.motpn && Params.seg == 0) { // motion prev-next, no segments mode
+            // new mode - find motion prev to next - added in v.3.0
+            if (!c->motion) {
+                find_motion_prev_next(fn, env);
+                motion_denoise(c->motion, Params);
+                motion_scene(c->motion, Params); // added in v.3.3
+                if (extmask) // added in v3.5
+                {
+                    PVideoFrame fextmask = extmask->GetFrame(fn, env);
+                    add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), c->motion, Params.pitch, Params.width, Params.height);
+                }
+            }
 
-			if (!c->noise)
-			{
-				find_segments(fn, env);
-				mark_noise(c->segments, c->noise, Params);
-				noise_dilate(c->noise, Params); // added in v.1.3
-			}
+            if (!c->noise) {
+                find_segments(fn, env);
+                mark_noise(c->segments, c->noise, Params);
+                noise_dilate(c->noise, Params); // added in v.1.3
+            }
 
 
-			(*exec_pixel[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, c->motion, n->y, n->pitch, fout_y, opitch, Params);
-		}
-		else if (Params.seg != 0)
-		{ // motion prev-cur and cur-next (old mode), but segments mode
-			if (!c->motion)
-			{
-				find_motion_prev_cur(fn, env);
-				find_motion_prev_cur(fn-1, env);
-				if (!p->noise)
-				{
-					find_segments(fn-1, env);
-					mark_noise(p->segments, p->noise, Params);
-				}
-				if (!c->noise)
-				{
-					find_segments(fn, env);
-					mark_noise(c->segments, c->noise, Params);
-				}
-				noise_to_one(p->noise, c->noise, c->motion, Params);
-				motion_denoise(c->motion, Params);
-				motion_scene(c->motion, Params); // added in v.3.3
-			}
+            (*exec_pixel[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, c->motion, n->y, n->pitch, fout_y, opitch, Params);
+        } else if (Params.seg != 0) { // motion prev-cur and cur-next (old mode), but segments mode
+            if (!c->motion) {
+                find_motion_prev_cur(fn, env);
+                find_motion_prev_cur(fn - 1, env);
+                if (!p->noise) {
+                    find_segments(fn - 1, env);
+                    mark_noise(p->segments, p->noise, Params);
+                }
+                if (!c->noise) {
+                    find_segments(fn, env);
+                    mark_noise(c->segments, c->noise, Params);
+                }
+                noise_to_one(p->noise, c->noise, c->motion, Params);
+                motion_denoise(c->motion, Params);
+                motion_scene(c->motion, Params); // added in v.3.3
+            }
 
-			if (!n->motion)
-			{
-				find_motion_prev_cur(fn+1, env);
-				if (!c->noise)
-				{
-					find_segments(fn, env);
-					mark_noise(c->segments, c->noise, Params);
-				}
-				if (!n->noise)
-				{
-					find_segments(fn+1, env);
-					mark_noise(n->segments, n->noise, Params);
-				}
-				noise_to_one(c->noise, n->noise, n->motion, Params);
-				motion_denoise(n->motion, Params);
-				motion_scene(n->motion, Params); // added in v.3.3
-			}
-			motion_merge(c->motion, n->motion, buf.motion, Params); // added in v.3.0
-				if (extmask) // added in v3.5
-				{
-					PVideoFrame fextmask = extmask->GetFrame(fn, env);
-					add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), buf.motion, Params.pitch, Params.width, Params.height); // v3.6
-				}
-			reject_on_motion(c->segments, buf.motion, Params);
-			if (Params.show == 0)
-			{
-				env->BitBlt(fout_y, opitch, c->y, c->pitch, Params.width, Params.height); // copy as base
-				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
-				if (Params.tsmooth>0) temporal_smooth(c->segments, p->y, p->pitch, n->y, n->pitch, fout_y, opitch, c->noise, c->motion, Params);// must be added but was commented (bug)  in v.3.0, enabled in 3.2
-			}
-			else if (Params.show == 1)
-			{
-				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
-				mark_outliers(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
-			}
-			else
-			{ // =2
-				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
-				map_outliers(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
-			}
-		}
-		else if (Params.seg == 0)
-		{ // motion prev-cur and cur-next, no segments - old mode before v.3.0
-			if (!c->motion)
-			{
-				find_motion_prev_cur(fn, env);
-				find_motion_prev_cur(fn-1, env);
-				if (!p->noise)
-				{
-					find_segments(fn-1, env);
-					mark_noise(p->segments, p->noise, Params);
-					noise_dilate(p->noise, Params); // added in v.1.3
-				}
-				if (!c->noise)
-				{
-					find_segments(fn, env);
-					mark_noise(c->segments, c->noise, Params);
-					noise_dilate(c->noise, Params); // added in v.1.3
-				}
-				noise_to_one(p->noise, c->noise, c->motion, Params);
-				motion_denoise(c->motion, Params);
-				motion_scene(c->motion, Params); // added in v.3.3
-			}
+            if (!n->motion) {
+                find_motion_prev_cur(fn + 1, env);
+                if (!c->noise) {
+                    find_segments(fn, env);
+                    mark_noise(c->segments, c->noise, Params);
+                }
+                if (!n->noise) {
+                    find_segments(fn + 1, env);
+                    mark_noise(n->segments, n->noise, Params);
+                }
+                noise_to_one(c->noise, n->noise, n->motion, Params);
+                motion_denoise(n->motion, Params);
+                motion_scene(n->motion, Params); // added in v.3.3
+            }
+            motion_merge(c->motion, n->motion, buf.motion, Params); // added in v.3.0
+            if (extmask) // added in v3.5
+            {
+                PVideoFrame fextmask = extmask->GetFrame(fn, env);
+                add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), buf.motion, Params.pitch, Params.width, Params.height); // v3.6
+            }
+            reject_on_motion(c->segments, buf.motion, Params);
+            if (Params.show == 0) {
+                env->BitBlt(fout_y, opitch, c->y, c->pitch, Params.width, Params.height); // copy as base
+                remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
+                if (Params.tsmooth > 0) temporal_smooth(c->segments, p->y, p->pitch, n->y, n->pitch, fout_y, opitch, c->noise, c->motion, Params);// must be added but was commented (bug)  in v.3.0, enabled in 3.2
+            } else if (Params.show == 1) {
+                remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
+                mark_outliers(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
+            } else { // =2
+                remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
+                map_outliers(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
+            }
+        } else if (Params.seg == 0) { // motion prev-cur and cur-next, no segments - old mode before v.3.0
+            if (!c->motion) {
+                find_motion_prev_cur(fn, env);
+                find_motion_prev_cur(fn - 1, env);
+                if (!p->noise) {
+                    find_segments(fn - 1, env);
+                    mark_noise(p->segments, p->noise, Params);
+                    noise_dilate(p->noise, Params); // added in v.1.3
+                }
+                if (!c->noise) {
+                    find_segments(fn, env);
+                    mark_noise(c->segments, c->noise, Params);
+                    noise_dilate(c->noise, Params); // added in v.1.3
+                }
+                noise_to_one(p->noise, c->noise, c->motion, Params);
+                motion_denoise(c->motion, Params);
+                motion_scene(c->motion, Params); // added in v.3.3
+            }
 
-			if (!n->motion)
-			{
-				find_motion_prev_cur(fn+1, env);
-				if (!c->noise)
-				{
-					find_segments(fn, env);
-					mark_noise(c->segments, c->noise, Params);
-					noise_dilate(c->noise, Params); // added in v.1.3
-				}
-				if (!n->noise)
-				{
-					find_segments(fn+1, env);
-					mark_noise(n->segments, n->noise, Params);
-					noise_dilate(n->noise, Params); // added in v.1.3
-				}
-				noise_to_one(c->noise, n->noise, n->motion, Params);
-				motion_denoise(n->motion, Params);
-				motion_scene(n->motion, Params); // added in v.3.3
-			}
-			motion_merge(c->motion, n->motion, buf.motion, Params); // added in v.3.0
-				if (extmask) // added in v3.5
-				{
-					PVideoFrame fextmask = extmask->GetFrame(fn, env);
-					add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), buf.motion, Params.pitch, Params.width, Params.height);
-				}
-			(*exec_pixel[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
-		}
+            if (!n->motion) {
+                find_motion_prev_cur(fn + 1, env);
+                if (!c->noise) {
+                    find_segments(fn, env);
+                    mark_noise(c->segments, c->noise, Params);
+                    noise_dilate(c->noise, Params); // added in v.1.3
+                }
+                if (!n->noise) {
+                    find_segments(fn + 1, env);
+                    mark_noise(n->segments, n->noise, Params);
+                    noise_dilate(n->noise, Params); // added in v.1.3
+                }
+                noise_to_one(c->noise, n->noise, n->motion, Params);
+                motion_denoise(n->motion, Params);
+                motion_scene(n->motion, Params); // added in v.3.3
+            }
+            motion_merge(c->motion, n->motion, buf.motion, Params); // added in v.3.0
+            if (extmask) // added in v3.5
+            {
+                PVideoFrame fextmask = extmask->GetFrame(fn, env);
+                add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), buf.motion, Params.pitch, Params.width, Params.height);
+            }
+            (*exec_pixel[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
+        }
 
-		// now process color planes
-		if (Params.show == S_MAP && !Params.show_chroma)
-		{ //  grey map
-		  memset( fout->GetWritePtr(PLANAR_U), 0x80,
-				 fout->GetPitch(PLANAR_U)*fout->GetHeight(PLANAR_U) );
-		  memset(fout->GetWritePtr(PLANAR_V), 0x80,
-				 fout->GetPitch(PLANAR_V)*fout->GetHeight(PLANAR_V));
-		}
-		else if (Params.show == S_MAP && Params.show_chroma)
-		{// copy color planes
-			env->BitBlt(fout->GetWritePtr(PLANAR_U), fout->GetPitch(PLANAR_U),
-						c->frame->GetReadPtr(PLANAR_U),	c->frame->GetPitch(PLANAR_U),
-						c->frame->GetRowSize(PLANAR_U),	c->frame->GetHeight(PLANAR_U));
-			env->BitBlt(fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
-						c->frame->GetReadPtr(PLANAR_V),	c->frame->GetPitch(PLANAR_V),
-						c->frame->GetRowSize(PLANAR_V),	c->frame->GetHeight(PLANAR_V));
-		}
-		else if ((Params.show && S_MARK) && !Params.median) // median bug fixed in v.3.2
-		{// copy color planes
-			env->BitBlt(fout->GetWritePtr(PLANAR_U), fout->GetPitch(PLANAR_U),
-						c->frame->GetReadPtr(PLANAR_U),	c->frame->GetPitch(PLANAR_U),
-						c->frame->GetRowSize(PLANAR_U),	c->frame->GetHeight(PLANAR_U));
-			env->BitBlt(fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
-						c->frame->GetReadPtr(PLANAR_V),	c->frame->GetPitch(PLANAR_V),
-						c->frame->GetRowSize(PLANAR_V),	c->frame->GetHeight(PLANAR_V));
-		  // change color of marked noise to pink
-			mark_color_plane(c->noise,	fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
-				fout->GetRowSize(PLANAR_V), fout->GetHeight(PLANAR_V), Params);
-		}
-		else if (Params.color && !Params.median)
-		{	// normal mode with color
-			// clean color YUV12 planes at places of luma spots (noise)
-			clean_color_plane(p->frame->GetReadPtr(PLANAR_U), p->frame->GetPitch(PLANAR_U),
-				c->frame->GetReadPtr(PLANAR_U), c->frame->GetPitch(PLANAR_U),
-				n->frame->GetReadPtr(PLANAR_U), n->frame->GetPitch(PLANAR_U),
-				c->frame->GetRowSize(PLANAR_U), c->frame->GetHeight(PLANAR_U),
-				c->noise, fout->GetWritePtr(PLANAR_U),fout->GetPitch(PLANAR_U), Params);
-			clean_color_plane(p->frame->GetReadPtr(PLANAR_V),p->frame->GetPitch(PLANAR_V),
-				c->frame->GetReadPtr(PLANAR_V), c->frame->GetPitch(PLANAR_V),
-				n->frame->GetReadPtr(PLANAR_V), n->frame->GetPitch(PLANAR_V),
-				c->frame->GetRowSize(PLANAR_V), c->frame->GetHeight(PLANAR_V),
-				c->noise, fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V), Params);
-		}
-		else
-		{ // mormal mode, copy color planes
-			env->BitBlt(fout->GetWritePtr(PLANAR_U), fout->GetPitch(PLANAR_U),
-						c->frame->GetReadPtr(PLANAR_U),	c->frame->GetPitch(PLANAR_U),
-						c->frame->GetRowSize(PLANAR_U),	c->frame->GetHeight(PLANAR_U));
-			env->BitBlt(fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
-						c->frame->GetReadPtr(PLANAR_V),	c->frame->GetPitch(PLANAR_V),
-						c->frame->GetRowSize(PLANAR_V),	c->frame->GetHeight(PLANAR_V));
-		}
+        // now process color planes
+        if (Params.show == S_MAP && !Params.show_chroma) { //  grey map
+            memset(fout->GetWritePtr(PLANAR_U), 0x80,
+                fout->GetPitch(PLANAR_U) * fout->GetHeight(PLANAR_U));
+            memset(fout->GetWritePtr(PLANAR_V), 0x80,
+                fout->GetPitch(PLANAR_V) * fout->GetHeight(PLANAR_V));
+        } else if (Params.show == S_MAP && Params.show_chroma) {// copy color planes
+            env->BitBlt(fout->GetWritePtr(PLANAR_U), fout->GetPitch(PLANAR_U),
+                c->frame->GetReadPtr(PLANAR_U), c->frame->GetPitch(PLANAR_U),
+                c->frame->GetRowSize(PLANAR_U), c->frame->GetHeight(PLANAR_U));
+            env->BitBlt(fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
+                c->frame->GetReadPtr(PLANAR_V), c->frame->GetPitch(PLANAR_V),
+                c->frame->GetRowSize(PLANAR_V), c->frame->GetHeight(PLANAR_V));
+        } else if ((Params.show && S_MARK) && !Params.median) // median bug fixed in v.3.2
+        {// copy color planes
+            env->BitBlt(fout->GetWritePtr(PLANAR_U), fout->GetPitch(PLANAR_U),
+                c->frame->GetReadPtr(PLANAR_U), c->frame->GetPitch(PLANAR_U),
+                c->frame->GetRowSize(PLANAR_U), c->frame->GetHeight(PLANAR_U));
+            env->BitBlt(fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
+                c->frame->GetReadPtr(PLANAR_V), c->frame->GetPitch(PLANAR_V),
+                c->frame->GetRowSize(PLANAR_V), c->frame->GetHeight(PLANAR_V));
+            // change color of marked noise to pink
+            mark_color_plane(c->noise, fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
+                fout->GetRowSize(PLANAR_V), fout->GetHeight(PLANAR_V), Params);
+        } else if (Params.color && !Params.median) {	// normal mode with color
+            // clean color YUV12 planes at places of luma spots (noise)
+            clean_color_plane(p->frame->GetReadPtr(PLANAR_U), p->frame->GetPitch(PLANAR_U),
+                c->frame->GetReadPtr(PLANAR_U), c->frame->GetPitch(PLANAR_U),
+                n->frame->GetReadPtr(PLANAR_U), n->frame->GetPitch(PLANAR_U),
+                c->frame->GetRowSize(PLANAR_U), c->frame->GetHeight(PLANAR_U),
+                c->noise, fout->GetWritePtr(PLANAR_U), fout->GetPitch(PLANAR_U), Params);
+            clean_color_plane(p->frame->GetReadPtr(PLANAR_V), p->frame->GetPitch(PLANAR_V),
+                c->frame->GetReadPtr(PLANAR_V), c->frame->GetPitch(PLANAR_V),
+                n->frame->GetReadPtr(PLANAR_V), n->frame->GetPitch(PLANAR_V),
+                c->frame->GetRowSize(PLANAR_V), c->frame->GetHeight(PLANAR_V),
+                c->noise, fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V), Params);
+        } else { // mormal mode, copy color planes
+            env->BitBlt(fout->GetWritePtr(PLANAR_U), fout->GetPitch(PLANAR_U),
+                c->frame->GetReadPtr(PLANAR_U), c->frame->GetPitch(PLANAR_U),
+                c->frame->GetRowSize(PLANAR_U), c->frame->GetHeight(PLANAR_U));
+            env->BitBlt(fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
+                c->frame->GetReadPtr(PLANAR_V), c->frame->GetPitch(PLANAR_V),
+                c->frame->GetRowSize(PLANAR_V), c->frame->GetHeight(PLANAR_V));
+        }
 
-		return fout; // result
-  }
-  else
-  { // first frame
-		return c->frame; // nothing to do - no temporal info
-  }
+        return fout; // result
+    } else { // first frame
+        return c->frame; // nothing to do - no temporal info
+    }
 }
 
 
@@ -523,56 +468,56 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment* env )
 // This can be used for simple parameter checking, so it is possible to create different filters,
 // based on the arguments recieved.
 
-AVSValue __cdecl Create_Despot(AVSValue args, void* user_data, IScriptEnvironment* env) {
-	Parms p;
-	AVSValue tmp;
-	int i=0;
-	// default parameters values are set in despot.hpp
-	SET_INT(mthres,0,255);
-	SET_INT(mwidth,0,32000);
-	SET_INT(mheight,0,32000);
-	SET_INT(merode,0,100); // mp is changed to merode - relative percent of (MWidth+1)*(MHeight+1) in v.2.0
-	i++;
-	if (args[i].Defined() ) p.y_next =	 args[i].AsBool(false) ? 2 : 1;  //interlaced
-	i++;
-	p.median = args[i].AsBool(false); //median
-	SET_INT(p1,0,255);
-	SET_INT(p2,0,255);
-	SET_INT(pwidth,0,32000);
-	SET_INT(pheight,0,32000);
-	i++;
-	p.ranked=	 args[i].AsBool(true); //ranked
-	SET_INT(sign,-2,2);
-	SET_INT(maxpts,0,10000000);
-	SET_INT(p1percent,0,100);
-	SET_INT(dilate,0,1000);
-	i++;
-	p.fitluma=	 args[i].AsBool(false); //fitluma
-	SET_INT(blur,0,4);
-	SET_INT(tsmooth,0,255);
-	SET_INT(show,0,2);
-	SET_INT(mark_v,0,255);
-	i++;
-	p.show_chroma=	 args[i].AsBool(false); //show_chroma
-	i++;
-	p.motpn = args[i].AsBool(true); //motpn - changed to true in v3.5
-	SET_INT(seg,0,2);
-	i++;
-	p.color = args[i].AsBool(false); //clean color - added in v.3.1
-	SET_INT(mscene,0,100);
-	SET_INT(minpts,0,10000000); // v.3.4
-	i++;
-	int iextmask=i;
-	i++; // planar
-	p.outfilename = args [i].Defined () ? args [i].AsString () : "";
-	++ i;
-	p.mc_flag = args [i].AsBool (false);
-	p.spotmax1 = 12;
-	SET_INT (spotmax1,1,10000000);
-	p.spotmax2 = 20;
-	SET_INT (spotmax2,1,10000000);
+AVSValue __cdecl Create_Despot(AVSValue args, void *user_data, IScriptEnvironment *env) {
+    Parms p;
+    AVSValue tmp;
+    int i = 0;
+    // default parameters values are set in despot.hpp
+    SET_INT(mthres, 0, 255);
+    SET_INT(mwidth, 0, 32000);
+    SET_INT(mheight, 0, 32000);
+    SET_INT(merode, 0, 100); // mp is changed to merode - relative percent of (MWidth+1)*(MHeight+1) in v.2.0
+    i++;
+    if (args[i].Defined()) p.y_next = args[i].AsBool(false) ? 2 : 1;  //interlaced
+    i++;
+    p.median = args[i].AsBool(false); //median
+    SET_INT(p1, 0, 255);
+    SET_INT(p2, 0, 255);
+    SET_INT(pwidth, 0, 32000);
+    SET_INT(pheight, 0, 32000);
+    i++;
+    p.ranked = args[i].AsBool(true); //ranked
+    SET_INT(sign, -2, 2);
+    SET_INT(maxpts, 0, 10000000);
+    SET_INT(p1percent, 0, 100);
+    SET_INT(dilate, 0, 1000);
+    i++;
+    p.fitluma = args[i].AsBool(false); //fitluma
+    SET_INT(blur, 0, 4);
+    SET_INT(tsmooth, 0, 255);
+    SET_INT(show, 0, 2);
+    SET_INT(mark_v, 0, 255);
+    i++;
+    p.show_chroma = args[i].AsBool(false); //show_chroma
+    i++;
+    p.motpn = args[i].AsBool(true); //motpn - changed to true in v3.5
+    SET_INT(seg, 0, 2);
+    i++;
+    p.color = args[i].AsBool(false); //clean color - added in v.3.1
+    SET_INT(mscene, 0, 100);
+    SET_INT(minpts, 0, 10000000); // v.3.4
+    i++;
+    int iextmask = i;
+    i++; // planar
+    p.outfilename = args[i].Defined() ? args[i].AsString() : "";
+    ++i;
+    p.mc_flag = args[i].AsBool(false);
+    p.spotmax1 = 12;
+    SET_INT(spotmax1, 1, 10000000);
+    p.spotmax2 = 20;
+    SET_INT(spotmax2, 1, 10000000);
 
-	return new Filter(args[0].AsClip(), args[iextmask].Defined () ? args[iextmask].AsClip() : 0, p, env);
+    return new Filter(args[0].AsClip(), args[iextmask].Defined() ? args[iextmask].AsClip() : 0, p, env);
     // Calls the constructor with the arguments provied.
 }
 
@@ -584,11 +529,10 @@ AVSValue __cdecl Create_Despot(AVSValue args, void* user_data, IScriptEnvironmen
 // It is called automatically, when the plugin is loaded to see which functions this filter contains.
 
 const AVS_Linkage *AVS_linkage = 0;
-extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors)
-{
-  AVS_linkage = vectors;
-  env->AddFunction("DeSpot", common_parms denoise_parms, Create_Despot,0);
-  return "DeSpot plugin";
+extern "C" __declspec(dllexport) const char *__stdcall AvisynthPluginInit3(IScriptEnvironment * env, const AVS_Linkage *const vectors) {
+    AVS_linkage = vectors;
+    env->AddFunction("DeSpot", common_parms denoise_parms, Create_Despot, 0);
+    return "DeSpot plugin";
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -596,56 +540,50 @@ extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit3(IScri
 // Frame
 //
 
-void WorkingData::init(size_t s)
-{
-  noise   = (BYTE *)malloc(s);
-  motion  = (BYTE *)malloc(s);
-  segments = (Segment *)malloc(sizeof(Segment) * (s/2+1));
+void WorkingData::init(size_t s) {
+    noise = (BYTE *)malloc(s);
+    motion = (BYTE *)malloc(s);
+    segments = (Segment *)malloc(sizeof(Segment) * (s / 2 + 1));
 }
 
-WorkingData::~WorkingData()
-{
-  if (noise)   free(noise);
-  if (motion)  free(motion);
-  if (segments) free(segments);
+WorkingData::~WorkingData() {
+    if (noise)   free(noise);
+    if (motion)  free(motion);
+    if (segments) free(segments);
 }
 
-void Buffer::ready_frame(int n, Frame * f, IScriptEnvironment* env)
-{
-  free_frame(f);
-  f->num = n;
-//  clog << "Getting Frame: " << n << "\n";
-  f->frame = childclip->GetFrame(n, env);//avs_get_frame(child, n);
-  f->y  = f->frame->GetReadPtr();//avs_get_read_ptr(f->frame);
-  f->pitch = f->frame->GetPitch();//avs_get_pitch(f->frame);
+void Buffer::ready_frame(int n, Frame *f, IScriptEnvironment *env) {
+    free_frame(f);
+    f->num = n;
+    //  clog << "Getting Frame: " << n << "\n";
+    f->frame = childclip->GetFrame(n, env);//avs_get_frame(child, n);
+    f->y = f->frame->GetReadPtr();//avs_get_read_ptr(f->frame);
+    f->pitch = f->frame->GetPitch();//avs_get_pitch(f->frame);
 }
 
-void Buffer::ready_data(Frame * f)
-{
-  WorkingData * d = data_cache + f->num % 2;
-  free_data(d);
-  d->num = f->num;
-  f->data = d;
+void Buffer::ready_data(Frame *f) {
+    WorkingData *d = data_cache + f->num % 2;
+    free_data(d);
+    d->num = f->num;
+    f->data = d;
 }
 
-void Buffer::free_frame(Frame * f)
-{
-  if (f->data) free_data(f->data);
-  f->num = -1;
-  f->frame = 0;
-  f->y = 0;
+void Buffer::free_frame(Frame *f) {
+    if (f->data) free_data(f->data);
+    f->num = -1;
+    f->frame = 0;
+    f->y = 0;
 }
 
-void Buffer::free_data(WorkingData * d)
-{
-  Frame * f = frame_cache + d->num % 4;
-  if (f->num == d->num) {
-    f->data = 0;
-    f->noise = 0;
-    f->motion = 0;
-    f->segments.data = 0;
-    f->segments.clear();
-  }
-  d->num = -1;
+void Buffer::free_data(WorkingData *d) {
+    Frame *f = frame_cache + d->num % 4;
+    if (f->num == d->num) {
+        f->data = 0;
+        f->noise = 0;
+        f->motion = 0;
+        f->segments.data = 0;
+        f->segments.clear();
+    }
+    d->num = -1;
 }
 
