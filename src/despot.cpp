@@ -127,14 +127,12 @@ GenericVideoFilter(_child), extmask(_extmask), Params(_Params), outfile_ptr (0) 
 	buf.num_frames = vi.num_frames;
 	Params.height = vi.height;
 	Params.width  = vi.width;
-	Params.pitch = ((vi.width+7)/8)*8; // v.3.2
-	if (!(env->GetCPUFlags() & CPUF_INTEGER_SSE) ) env->ThrowError("DeSpot: CPU must have Integer SSE support!"); // fixme, is SSE actually used anywhere? I don't think so
-	Params.size   = Params.height * Params.pitch; // v.3.2
+	Params.pitch = ((vi.width+7)/8)*8;
+	Params.size   = Params.height * Params.pitch;
 
 	buf.data_cache[0].init(Params.size);
 	buf.data_cache[1].init(Params.size);
 	buf.motion =  (BYTE *)malloc(Params.size);
-//	_child->SetCacheHints(CACHE_RANGE,3); // added in v.3.3.2, changed from 2 to 3 in v3.5
 
 	if (! Params.outfilename.empty ())
 	{
@@ -242,9 +240,6 @@ void	Filter::print_segments (int fn, IScriptEnvironment* env)
   }
 }
 
-Exec * exec_median[3] = { cond_median, map_outliers, map_outliers    };
-Exec * exec_pixel[3] = { remove_outliers, mark_outliers, map_outliers };
-
 // ********************************************************************************
 
 PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment* env )
@@ -253,6 +248,9 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment* env )
   Frame * p = buf.get_frame(fn-1, env);
   Frame * c = buf.get_frame(fn, env);
   Frame * n = buf.get_frame(fn+1, env);
+
+  constexpr Exec *exec_median[3] = { cond_median, map_outliers, map_outliers };
+  constexpr Exec *exec_pixel[3] = { remove_outliers, mark_outliers, map_outliers };
 
   if (p && n)
   {
@@ -275,7 +273,7 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment* env )
 				find_motion_prev_cur(fn+1, env);
 				motion_denoise(n->motion, Params); // v.3.2
 			}
-			motion_merge(c->motion, n->motion, buf.motion, Params); // added in v.3.0
+			motion_merge(c->motion, n->motion, buf.motion, Params);
 			(*exec_median[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
 		}
 		else if (Params.motpn && Params.seg != 0)
@@ -342,6 +340,7 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment* env )
 				mark_noise(c->segments, c->noise, Params);
 				noise_dilate(c->noise, Params); // added in v.1.3
 			}
+
 
 			(*exec_pixel[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, c->motion, n->y, n->pitch, fout_y, opitch, Params);
 		}

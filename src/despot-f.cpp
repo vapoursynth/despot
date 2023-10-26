@@ -325,7 +325,7 @@ void find_mot_line(const BYTE * p, const BYTE * c, BYTE * motion, int width, int
 {
     for (int x = 0; x < width; ++x) // v3.5
     {
-      if (abs(p[x] - c[x]) > mthres) motion[x] = 3; //  motion without noise - was mratio in v.2.1
+      if (abs(p[x] - c[x]) > mthres) motion[x] = 3; //  motion without noise
       else                           motion[x] = 0; // 0 is no motion
     }
 }
@@ -385,26 +385,23 @@ void motion_denoise(BYTE * moving, const Parms & p)
 	//=1 if motion and noise exist at this pixel
 	// at output, moving[x] may be 0 (no motion) or 255 (if motion)
 
-  const int w = p.pitch;// width; v.3.2
+  const int w = p.pitch;
   const int h = p.height;
   const int w_8 = w / 8;
 
   const int MHEIGHT_2 = p.mheight/2;
   const int MWIDTH_2  = p.mwidth/2;
   const int Y_NEXT    = p.y_next;
-//  const int MPx3      =  p.mp*3;// mp is changed to merode as relative percent of (MWidth+1)*(MHeight+1) in v.2.0 :
   const int MPx3      = (p.merode*3*(p.mwidth+1)*(p.mheight+1))/100; // multiplied by mratio (default =3) because motion pixels mark=mratio - changed in v 2.1
 
 
   if (MHEIGHT_2 == 0 && MWIDTH_2 == 0) return; // nothing to do
 
-  //byte fmoving[h*w];// changed in v.1.1  for compatibility with VC
   //(only dynamic arrays with non-constant size):
   BYTE * fmoving = (BYTE *) malloc(sizeof(BYTE) * h*w);
 
-  // byte row[p.y_next][((w+64)/8)*8 + 8];// changed in v.1.1  for compatibility with VC
   // (only dynamic arrays with non-constant size):
-  size_t rowpadded_size = ((w+64)/8)*8 + 8; // v.3.2
+  size_t rowpadded_size = ((w+64)/8)*8 + 8;
   signed char * row = (signed char *) malloc( sizeof(char)*p.y_next*rowpadded_size );
 
   if (MPx3 > 0)
@@ -504,13 +501,11 @@ void noise_dilate(BYTE * moving, const Parms & p)
   const int h = p.height;
   const int w_8 = w / 8;
 
-  //byte fmoving[h*w];// changed in v.1.1  for compatibility with VC
   //(only dynamic arrays with non-constant size):
   BYTE * fmoving = (BYTE *) malloc(sizeof(BYTE) * h*w);
 
-  // byte row[p.y_next][((w+64)/8)*8 + 8];// changed in v.1.1  for compatibility with VC
   // (only dynamic arrays with non-constant size):
-  size_t rowpadded_size = ((w+64)/8)*8 + 8; // v.3.2
+  size_t rowpadded_size = ((w+64)/8)*8 + 8;
   signed char * row = (signed char *) _alloca( sizeof(char)*p.y_next*rowpadded_size ); // added in v.3.2, changed to alloca in 3.3
 
   // we use p.dilate instead of both mheight/2 and mwidth/2 -  changed in v.1.3
@@ -897,8 +892,7 @@ void mark_motion(const BYTE * p, int Ppitch, BYTE * p_noise,
   
 }}
 
-//
-// added in v.3.0
+
 // change motion mark to 1 if noise
 
 void noise_to_one(BYTE * p_noise,  BYTE * c_noise,  BYTE * c_motion, const Parms & parms)
@@ -1706,10 +1700,6 @@ void mark_color_plane(BYTE * c_noise,	BYTE * ptrV, int pitchV, int widthUV, int 
 	}
   }
 }
-//
-// -------------------------------------------------------------------------
-//
-// added in v.3.3
 
 void motion_count(BYTE * motion, int height, int width, int pitch,   int * mcount )
 {
@@ -1728,12 +1718,12 @@ void motion_count(BYTE * motion, int height, int width, int pitch,   int * mcoun
 }
 
 //
-// set full motion map to motion at scenechange (if motion points percent > threshold) - added in v.3.3
+// set full motion map to motion at scenechange (if motion points percent > threshold)
 //
 
 void motion_scene(BYTE * motion, const Parms & parms)
 {
-	int width_mod8 = (parms.width/8)*8; // mod8 for fast SSE processing
+	int width_mod8 = (parms.width/8)*8;
 	int count = 0;
 	// counter of motion points
 
@@ -1743,8 +1733,8 @@ void motion_scene(BYTE * motion, const Parms & parms)
 
   if (mpercent > parms.mscene)
   {// new scene found, set all points as motion
-	  size_t fullsize = parms.height*parms.pitch; // bug fixed in v.3.3.1
-	  for (int h=0; h<parms.height; h++) // correct for fields separated in v.3.5
+	  size_t fullsize = parms.height*parms.pitch;
+	  for (int h=0; h<parms.height; h++)
 	  {
 		  memset(motion, 255, parms.width);
 		  motion += parms.pitch;
