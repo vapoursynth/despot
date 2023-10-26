@@ -30,13 +30,12 @@ http://kevin.atkinson.dhs.org/temporal_median/
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#include <avisynth.h>
+#include "despot.hpp"
 
+#include <avisynth.h>
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
-
-#include "despot.hpp"
 
 struct WorkingData {
   int num = -1;
@@ -674,7 +673,7 @@ void WorkingData::init(size_t s)
 {
   noise   = (BYTE *)malloc(s);
   motion  = (BYTE *)malloc(s);
-  segments = (Segment *)malloc(segment_size * (s/2+1));
+  segments = (Segment *)malloc(sizeof(Segment) * (s/2+1));
 }
 
 WorkingData::~WorkingData()

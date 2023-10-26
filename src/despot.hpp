@@ -75,8 +75,48 @@ struct Parms {
 	  seg(2), color(false), mscene(40), minpts(0) {}   //Added by Fizick
 };
 
-struct Segment;
-extern size_t segment_size;
+constexpr char B_NOTHING = 0;
+constexpr char B_SEGMENT = 1; // single segment
+constexpr char B_LINK = 2; // has master
+constexpr char B_MASTER = 4; // has slave link
+
+struct Segment {
+	bool p1yes = false;
+	char what = B_SEGMENT;
+	short ly; // top
+	short lx1; // left
+	short lx2; // right
+	long nump1 = 0;
+	long nump2 = 0;
+	long sumnoise = 0;
+	struct Data {
+		struct BStruct {
+			short x1;
+			short x2;
+			short y1;
+			short y2;
+		};
+		struct SStruct {
+			short width;
+			short height;
+			bool is_noise;
+		};
+		BStruct b = {};
+		SStruct s = {};
+		Segment *nowis = nullptr;
+
+		explicit Data(short x, short y) {
+			b.x1 = x;
+			b.x2 = x;
+			b.y1 = y;
+			b.y2 = y;
+		}
+	} data;
+
+	Segment(short ly0, short lx10) :
+		ly(ly0), lx1(lx10), lx2(lx10), data(lx10, ly0) {
+	}
+};
 
 struct Segments {
   Segment * data;

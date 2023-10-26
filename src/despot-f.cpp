@@ -28,51 +28,21 @@ http://kevin.atkinson.dhs.org/temporal_median/
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "despot.hpp"
+
 #include <cstring>
 #include <cmath>
 #include <cstdlib>
-
-#include "despot.hpp"
+#include <memory>
 
 static void memzero(void * d0, size_t s) {
   memset(d0, 0, s);
 }
 
-
-constexpr char B_NOTHING = 0;
-constexpr char B_SEGMENT = 1; // single segment
-constexpr char B_LINK = 2; // has master
-constexpr char B_MASTER = 4; // has slave link
-
-struct Segment {
-  bool p1yes;
-  char what;
-  short ly; // top
-  short lx1; // left
-  short lx2; // right
-  long nump1; // number of points > p1 
-  long nump2; // number of points > p2
-  long sumnoise; // summa of differences (noise) 
-  struct Data {
-    Data(short x = 0, short y = 0)
-	{b.x1 = x; b.x2 = x; b.y1 = y; b.y2 = y; s.width = 0; s.height=0; s.is_noise=false; nowis=0; }
-    struct {short x1; short x2; short y1; short y2;} b;
-    struct {short width; short height; bool is_noise;} s;
-    Segment * nowis;
-  } data;
-
-  Segment(short ly0, short lx10) : p1yes(false), what(B_SEGMENT),
-         ly(ly0), lx1(lx10), lx2(lx10), nump1(0), nump2(0), sumnoise(0),// changed in v.1.2
-                                  data(lx10, ly0) {}
-};
-
-size_t segment_size = sizeof(Segment);
-
-
 void combine_xs(BYTE * noise, Segments & segs, const Parms & p)
 {
   BYTE * l = noise;
-  Segment * c = 0;
+  Segment * c = nullptr;
 
   BYTE p2 = p.p2;
 
@@ -84,8 +54,7 @@ void combine_xs(BYTE * noise, Segments & segs, const Parms & p)
 
 		  if (c == 0) { // new left edge found
 				c = segs.end++; // get next free segment number
-				Segment tmpseg = Segment(y,x);
-				memcpy(c, &tmpseg, sizeof(Segment));
+				*c = Segment(y,x); // fixme, why was this so roundabout with memcpy?
 			}
 
 			c->nump2 += 1; 
@@ -436,21 +405,17 @@ void motion_denoise(BYTE * moving, const Parms & p)
   // byte row[p.y_next][((w+64)/8)*8 + 8];// changed in v.1.1  for compatibility with VC
   // (only dynamic arrays with non-constant size):
   size_t rowpadded_size = ((w+64)/8)*8 + 8; // v.3.2
-//  signed char * row = (signed char *) _alloca( sizeof(char)*p.y_next*rowpadded_size ); //added in v.3.2, changed to alloca in v.3.3
-  signed char * row = (signed char *) malloc( sizeof(char)*p.y_next*rowpadded_size ); //added in v.3.2, changed to alloca in v.3.3, return to malloc in v.3.5.2
-
-  int x, y; // del multiple declarations of  x and y   in v.1.1  for compatibility with VC
-  int i;
+  signed char * row = (signed char *) malloc( sizeof(char)*p.y_next*rowpadded_size );
 
   if (MPx3 > 0)
   {
 	  // Erode
 
-	  for (i=0; i<Y_NEXT; i++) {
+	  for (int i=0; i<Y_NEXT; i++) {
 		  memzero(&row[i*rowpadded_size], rowpadded_size); // v.3.2
 	  }
 
-	  for ( y = -(MHEIGHT_2)*Y_NEXT; y < h; ++y)
+	  for (int y = -(MHEIGHT_2)*Y_NEXT; y < h; ++y)
 	  {
 		signed char * r = row + (y & (Y_NEXT - 1)) + 32; // v.3.2
 		int y1 = y - (MHEIGHT_2)*Y_NEXT - Y_NEXT;
@@ -463,9 +428,9 @@ void motion_denoise(BYTE * moving, const Parms & p)
 		  BYTE * r2 = moving + w * y;
 		  BYTE * fw = fmoving + w * y;
 		  int total = 0;
-		  for ( x = 0; x != MWIDTH_2; ++x)
+		  for (int x = 0; x != MWIDTH_2; ++x)
 			total += r[x]; //  summa of motion pixels marks (but not simple! remember about mratio(3) and 1)
-		  for ( x = 0; x != w; ++x)
+		  for (int x = 0; x != w; ++x)
 		  {
 			total -= r[x - MWIDTH_2 - 1];
 			total += r[x + MWIDTH_2];
@@ -484,21 +449,21 @@ void motion_denoise(BYTE * moving, const Parms & p)
 	  // we do not use erode, but we must initialize  fmoving,
 		//simply from  motion array data, but of 1 and 0 (not 3 and 0)
 		// code added instead of erode in v 2.0 :
-		for (y=0; y<h; y++) {
+		for (int y=0; y<h; y++) {
 			  BYTE * r2 = moving + w * y; // lines
 			  BYTE * fw = fmoving + w * y;
-			  for (x=0; x<w; x++) {
+			  for (int x=0; x<w; x++) {
 				  fw[x] = r2[x] ? 1 : 0;
 			  }
 		}
 
   }
   // Dilate
-  for (i=0; i<Y_NEXT; i++) {
+  for (int i=0; i<Y_NEXT; i++) {
 	  memzero(&row[i*rowpadded_size], rowpadded_size);
   }
 
-  for ( y = -(MHEIGHT_2)*Y_NEXT; y < h; ++y)
+  for (int y = -(MHEIGHT_2)*Y_NEXT; y < h; ++y)
   {
     signed char * r = row + (y & (Y_NEXT - 1)) + 32;
     int y1 = y - (MHEIGHT_2)*Y_NEXT - Y_NEXT;
@@ -510,9 +475,9 @@ void motion_denoise(BYTE * moving, const Parms & p)
 	{
       BYTE * fw = moving + w * y;
       int total = 0;
-      for ( x = 0; x != MWIDTH_2; ++x)
+      for (int x = 0; x != MWIDTH_2; ++x)
         total += r[x];
-      for ( x = 0; x != w; ++x)
+      for (int x = 0; x != w; ++x)
 	  {
         total -= r[x - MWIDTH_2 - 1];
         total += r[x + MWIDTH_2];
@@ -521,23 +486,21 @@ void motion_denoise(BYTE * moving, const Parms & p)
 	}
   }
   
-
-
   free(row);
   free(fmoving);
-
 }
 
 
 void noise_dilate(BYTE * moving, const Parms & p)
 {
-	// dilate noise pixels map (with Parms.dilate as range) - added in v.1.3
+	// dilate noise pixels map (with Parms.dilate as range)
 	// code is bit modified code of motion_denoise
 	// "moving" is actually "noise"  - I do not rename it for simplicity (and lazy)
 
-  if (p.dilate <= 0) return; // then nothing to do
+  if (p.dilate <= 0)
+	  return;
 
-  const int w = p.pitch;// width; v.3.2
+  const int w = p.pitch;
   const int h = p.height;
   const int w_8 = w / 8;
 
