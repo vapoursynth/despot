@@ -39,7 +39,7 @@ static void memzero(void *d0, size_t s) {
     memset(d0, 0, s);
 }
 
-void combine_xs(BYTE *noise, Segments &segs, const Parms &p) {
+static void combine_xs(BYTE *VS_RESTRICT noise, Segments &segs, const Parms &p) {
     BYTE *l = noise;
     Segment *c = nullptr;
 
@@ -74,7 +74,7 @@ void combine_xs(BYTE *noise, Segments &segs, const Parms &p) {
             c->lx2 = p.width - 1;
             c = 0;
         }
-        l += p.pitch; //width; v.3.2
+        l += p.pitch;
     }
 }
 
@@ -145,9 +145,7 @@ void combine_ys(Segments &segs, const Parms &p) {
     }
 }
 
-
-
-void to_size(Segments &segs, const Parms &p) {
+static void to_size(Segments &segs, const Parms &p) {
 
     const short PH = p.pheight * p.y_next;
     for (Segment *cur = segs.data; cur != segs.end; ++cur) {
@@ -185,13 +183,13 @@ void to_size(Segments &segs, const Parms &p) {
 
 // scan noise and create segments
 
-void find_sizes(BYTE *noise, Segments &segs, const Parms &parms) {
+void find_sizes(BYTE *VS_RESTRICT noise, Segments &segs, const Parms &parms) {
     combine_xs(noise, segs, parms);
     combine_ys(segs, parms);
     to_size(segs, parms);
 }
 
-void mark_noise(Segments &segs, BYTE *l, const Parms &p) {
+void mark_noise(Segments &segs, BYTE *VS_RESTRICT l, const Parms &p) {
     memzero(l, p.size);
     Segment *c = segs.data;
     segs.end->ly = p.height; // to avoid having to check for < segs.end
@@ -212,7 +210,7 @@ void mark_noise(Segments &segs, BYTE *l, const Parms &p) {
 //
 
 
-void reject_on_motion(Segments &segs, BYTE *motion, const Parms &p) {
+void reject_on_motion(Segments &segs, BYTE *VS_RESTRICT motion, const Parms &p) {
     Segment *master;
     Segment *mastertmp;
 
@@ -294,7 +292,8 @@ void reject_on_motion(Segments &segs, BYTE *motion, const Parms &p) {
         // second pass - reject all slaves of rejected masters
         for (c = segs.data; c != segs.end; ++c) {
             master = c->data.nowis;
-            if (master != 0) c->data.s.is_noise = master->data.s.is_noise;
+            if (master != 0)
+                c->data.s.is_noise = master->data.s.is_noise;
         }
     }
 
@@ -305,15 +304,17 @@ void reject_on_motion(Segments &segs, BYTE *motion, const Parms &p) {
 // Motion Detection
 //
 
-void find_mot_line(const BYTE *p, const BYTE *c, BYTE *motion, int width, int mthres) {
+static void find_mot_line(const BYTE *p, const BYTE *c, BYTE *VS_RESTRICT motion, int width, int mthres) {
     for (int x = 0; x < width; ++x) {
-        if (abs(p[x] - c[x]) > mthres) motion[x] = 3; //  motion without noise
-        else                           motion[x] = 0; // 0 is no motion
+        if (abs(p[x] - c[x]) > mthres)
+            motion[x] = 3; //  motion without noise
+        else                           
+            motion[x] = 0; // 0 is no motion
     }
 }
 
 
-void find_motion(const BYTE *p, int Ppitch, const BYTE *c, int Cpitch, BYTE *motion,
+void find_motion(const BYTE *p, int Ppitch, const BYTE *c, int Cpitch, BYTE *VS_RESTRICT motion,
     const Parms &parms) {
         {
             int width = parms.pitch;
@@ -329,22 +330,22 @@ void find_motion(const BYTE *p, int Ppitch, const BYTE *c, int Cpitch, BYTE *mot
         }
 }
 
-void motion_summation(BYTE *moving, signed char *r, int w, int h, int y1, int y2) {
+static void motion_summation(const BYTE *moving, signed char *VS_RESTRICT r, int w, int h, int y1, int y2) {
     if (y1 >= 0) {
-        BYTE *r2 = moving + w * y1;
+        const BYTE *r2 = moving + w * y1;
         for (int x = 0; x < w; ++x) {
             r[x] -= r2[x];
         }
     }
     if (y2 < h) {
-        BYTE *r2 = moving + w * y2;
+        const BYTE *r2 = moving + w * y2;
         for (int x = 0; x < w; ++x) {
             r[x] += r2[x];
         }
     }
 }
 
-void motion_denoise(BYTE *moving, const Parms &p) {
+void motion_denoise(BYTE *VS_RESTRICT moving, const Parms &p) {
     // This function is based on the motion map denoise code found in
     // Donald Graft's Smart Deinterlacer Filter.  I (K.A.) completely rewrote
     // it to so that its complexity is O(w*h) instead of
@@ -454,7 +455,7 @@ void motion_denoise(BYTE *moving, const Parms &p) {
 }
 
 
-void noise_dilate(BYTE *moving, const Parms &p) {
+void noise_dilate(BYTE *VS_RESTRICT moving, const Parms &p) {
     // dilate noise pixels map (with Parms.dilate as range)
     // code is bit modified code of motion_denoise
     // "moving" is actually "noise"  - I do not rename it for simplicity (and lazy)
@@ -518,7 +519,7 @@ void noise_dilate(BYTE *moving, const Parms &p) {
     free(fmoving);
 }
 
-void median_line(const BYTE *p, const BYTE *n, const BYTE *c, BYTE *c_motion, BYTE *o, int width) {
+static void median_line(const BYTE *p, const BYTE *n, const BYTE *c, const BYTE *c_motion, BYTE *VS_RESTRICT o, int width) {
     for (int x = 0; x < width; ++x) {
         o[x] = c[x];
         if (c_motion[x])
@@ -530,18 +531,15 @@ void median_line(const BYTE *p, const BYTE *n, const BYTE *c, BYTE *c_motion, BY
     }
 }
 
-
 void cond_median(const BYTE *p, int Ppitch,
     const BYTE *c, int Cpitch,
-    BYTE *c_noise, BYTE *c_motion,
+    BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT c_motion,
     const BYTE *n, int Npitch,
-    BYTE *o, int Opitch,
+    BYTE *VS_RESTRICT o, int Opitch,
     const Parms &parms) {
         {
             int width = parms.pitch;
             for (int y = 0; y != parms.height; ++y) {
-
-
                 median_line(p, n, c, c_motion, o, width);
 
                 p += Ppitch;
@@ -554,10 +552,8 @@ void cond_median(const BYTE *p, int Ppitch,
         }
 }
 
-
-
-void getminmax(const unsigned char *p, const unsigned char *n,
-    unsigned char *minpn, unsigned char *maxpn, int wmod8) {
+static void getminmax(const unsigned char *p, const unsigned char *n,
+    unsigned char *VS_RESTRICT minpn, unsigned char *VS_RESTRICT maxpn, int wmod8) {
 
     if (minpn != 0 && maxpn != 0) {
         for (int x = 0; x < wmod8; ++x) {
@@ -576,36 +572,40 @@ void getminmax(const unsigned char *p, const unsigned char *n,
 
 }
 
-void find_sdi_p1(const unsigned char *p, const unsigned char *n, const unsigned char *c,
-    unsigned char *o, int wmod8) {
+static void find_sdi_p1(const unsigned char *p, const unsigned char *n, const unsigned char *c,
+    unsigned char *VS_RESTRICT o, int wmod8) {
 
     for (int x = 0; x < wmod8; ++x) {
         BYTE minpn = std::min(p[x], n[x]);  // min from 2 pixels
-        if (c[x] < minpn) o[x] = minpn - c[x];
+        if (c[x] < minpn)
+            o[x] = minpn - c[x];
     }
 
 }
 
 
-void find_sdi_m1(const unsigned char *p, const unsigned char *n, const unsigned char *c,
-    unsigned char *o, int wmod8) {
+static void find_sdi_m1(const unsigned char *p, const unsigned char *n, const unsigned char *c,
+    unsigned char *VS_RESTRICT o, int wmod8) {
 
     for (int x = 0; x < wmod8; ++x) {
         BYTE maxpn = std::max(p[x], n[x]);  // min from 2 pixels
-        if (c[x] > maxpn) o[x] = c[x] - maxpn;
+        if (c[x] > maxpn)
+            o[x] = c[x] - maxpn;
     }
 
 }
 
 
-void find_sdi_0(const unsigned char *p, const unsigned char *n, const unsigned char *c,
-    unsigned char *o, int wmod8) {
+static void find_sdi_0(const unsigned char *p, const unsigned char *n, const unsigned char *c,
+    unsigned char *VS_RESTRICT o, int wmod8) {
 
     for (int x = 0; x < wmod8; ++x) {
         BYTE minpn = std::min(p[x], n[x]);  // min from 2 pixels
         BYTE maxpn = std::max(p[x], n[x]);  // min from 2 pixels
-        if (c[x] < minpn) o[x] = minpn - c[x];
-        else if (c[x] > maxpn) o[x] = c[x] - maxpn;
+        if (c[x] < minpn)
+            o[x] = minpn - c[x];
+        else if (c[x] > maxpn)
+            o[x] = c[x] - maxpn;
     }
 
 }
@@ -615,7 +615,7 @@ void find_sdi_0(const unsigned char *p, const unsigned char *n, const unsigned c
 //
 
 void find_outliers(const BYTE *p, int Ppitch, const BYTE *c, int Cpitch,
-    const BYTE *n, int Npitch, BYTE *o, const Parms &parms) {
+    const BYTE *n, int Npitch, BYTE *VS_RESTRICT o, const Parms &parms) {
         {  // output o is min difference of cur from prev and next if they both less or both bigger
            // Sign of spot may also be defined
             int width = parms.width;
@@ -798,40 +798,14 @@ void find_outliers(const BYTE *p, int Ppitch, const BYTE *c, int Cpitch,
         }
 }
 
-
-
-
-void mark_motion(const BYTE *p, int Ppitch, BYTE *p_noise,
-    const BYTE *c, int Cpitch, BYTE *c_noise, BYTE *c_motion,
-    const Parms &parms) {
-        {
-            int width = parms.pitch;
-            for (int y = 0; y != parms.height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                    if (abs(p[x] - c[x]) > parms.mthres) {
-                        if (p_noise[x] || c_noise[x])  c_motion[x] = 1; //  motion and  prev or current noise
-                        else                           c_motion[x] = 3; //  motion, no noise (was mratio in 2.1)
-                    } else                           c_motion[x] = 0; // no motion
-                }
-                p += Ppitch;
-                c += Cpitch;
-                p_noise += parms.pitch;
-                c_noise += parms.pitch;
-                c_motion += parms.pitch;
-            }
-
-        }
-}
-
-
 // change motion mark to 1 if noise
 
-void noise_to_one(BYTE *p_noise, BYTE *c_noise, BYTE *c_motion, const Parms &parms) {
+void noise_to_one(BYTE *VS_RESTRICT p_noise, BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT c_motion, const Parms &parms) {
     {
         int width = parms.width;
         for (int y = 0; y != parms.height; ++y) {
             for (int x = 0; x != width; ++x) {
-                if (c_motion[x] & (p_noise[x] || c_noise[x])) c_motion[x] = 1;
+                if (c_motion[x] && (p_noise[x] || c_noise[x])) c_motion[x] = 1;
                 //  motion and  prev or current noise = 1, else no change
             }
             p_noise += parms.pitch;
@@ -847,7 +821,7 @@ void noise_to_one(BYTE *p_noise, BYTE *c_noise, BYTE *c_motion, const Parms &par
 //    1D  line triangle blur near deleted spot segments.
 //
 
-void lineblur(BYTE *c_noise, BYTE *c_motion, BYTE *o, int width, const Parms &parms) {
+static void lineblur(const BYTE *c_noise, const BYTE *c_motion, BYTE *VS_RESTRICT o, int width, const Parms &parms) {
     BYTE b[10];	           // buffer
     int xleft = 2 * parms.blur;// sub blur diameter to not exceed bounds
     int xright = width - 2 * parms.blur;
@@ -976,7 +950,7 @@ void lineblur(BYTE *c_noise, BYTE *c_motion, BYTE *o, int width, const Parms &pa
 
 }
 
-void tsmooth_line(const BYTE *p, const BYTE *n, BYTE *o, BYTE *c_noise, BYTE *c_motion, int width, int tsmoothLimit) {
+static void tsmooth_line(const BYTE *p, const BYTE *n, BYTE *VS_RESTRICT o, const BYTE *c_noise, const BYTE *c_motion, int width, int tsmoothLimit) {
 
     for (int x = 0; x != width; ++x) {
         if (!c_noise[x] && !c_motion[x]) {
@@ -995,9 +969,9 @@ void tsmooth_line(const BYTE *p, const BYTE *n, BYTE *o, BYTE *c_noise, BYTE *c_
 
 void remove_outliers(const BYTE *p, int Ppitch,
     const BYTE *c, int Cpitch,
-    BYTE *c_noise, BYTE *c_motion,
+    BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT c_motion,
     const BYTE *n, int Npitch,
-    BYTE *o, int Opitch,
+    BYTE *VS_RESTRICT o, int Opitch,
     const Parms &parms) {
         {
             int width = parms.width;
@@ -1054,12 +1028,10 @@ void remove_outliers(const BYTE *p, int Ppitch,
         }
 }
 
-
-
 void mark_outliers(const BYTE *p, int Ppitch,
-    const BYTE *c, int Cpitch, BYTE *c_noise, BYTE *c_motion,
+    const BYTE *c, int Cpitch, BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT c_motion,
     const BYTE *n, int Npitch,
-    BYTE *o, int Opitch,
+    BYTE *VS_RESTRICT o, int Opitch,
     const Parms &parms) {
     for (int y = 0; y != parms.height; ++y) {
         for (int x = 0; x != parms.width; ++x) {
@@ -1083,12 +1055,11 @@ void mark_outliers(const BYTE *p, int Ppitch,
     }
 }
 
-
 void map_outliers(const BYTE *p, int Ppitch,
     const BYTE *c, int Cpitch,
-    BYTE *c_noise, BYTE *c_motion,
+    BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT c_motion,
     const BYTE *n, int Npitch,
-    BYTE *o, int Opitch,
+    BYTE *VS_RESTRICT o, int Opitch,
     const Parms &parms) {
     for (int y = 0; y != parms.height; ++y) {
         for (int x = 0; x != parms.width; ++x) {
@@ -1112,8 +1083,6 @@ void map_outliers(const BYTE *p, int Ppitch,
         c_motion += parms.pitch;
     }
 }
-
-
 
 void mark_segments(Segments &segs, const BYTE *p, int Ppitch,
     const BYTE *c, int Cpitch, BYTE *c_noise, BYTE *c_motion,
@@ -1142,47 +1111,22 @@ void mark_segments(Segments &segs, const BYTE *p, int Ppitch,
     }
 }
 
-
-void map_segments(Segments &segs, const BYTE *p, int Ppitch,
-    const BYTE *c, int Cpitch, BYTE *c_noise, BYTE *c_motion,
-    const BYTE *n, int Npitch, 			// BYTE * n_motion, - remove parameter in v.3.0
-    BYTE *o, int Opitch,
-    const Parms &parms) {
-    for (int y = 0; y != parms.height; ++y) {
-        for (int x = 0; x != parms.width; ++x) {
-            if (c_noise && c_noise[x]) {
-                if (c_motion[x])  o[x] = 159;
-                else o[x] = 255;
-            } else if (c_motion[x])   o[x] = 95;
-            else      o[x] = 0;
-
-        }
-        p += Ppitch;
-        c += Cpitch;
-        n += Npitch;
-        o += Opitch;
-        if (c_noise)
-            c_noise += parms.pitch;
-        c_motion += parms.pitch;
-    }
-}
-
-void motion_merge(BYTE *c_motion, BYTE *n_motion, BYTE *m_motion, const Parms &parms) {
+void motion_merge(BYTE *VS_RESTRICT c_motion, BYTE *VS_RESTRICT n_motion, BYTE *VS_RESTRICT m_motion, const Parms &parms) {
     for (int y = 0; y != parms.height; ++y) {
         for (int x = 0; x != parms.width; ++x) {
             m_motion[x] = (c_motion[x] || n_motion[x]) ? 255 : 0;
         }
 
-        c_motion += parms.pitch;//width;
-        n_motion += parms.pitch;//width;
-        m_motion += parms.pitch;//width;
+        c_motion += parms.pitch;
+        n_motion += parms.pitch;
+        m_motion += parms.pitch;
     }
 }
 
 
 //    1D  line triangle blur near deleted spot segments.
 
-void segment_blur(BYTE *o, int x1, int x2, int blur, BYTE *b) {
+static void segment_blur(BYTE *VS_RESTRICT o, int x1, int x2, int blur, BYTE *VS_RESTRICT b) {
     //    int blur = parms.blur; // 1d blur radius
     //    b must be BYTE buffer with size >=16
 
@@ -1286,8 +1230,8 @@ void segment_blur(BYTE *o, int x1, int x2, int blur, BYTE *b) {
 //
 // temporal smoothing
 
-void temporal_smooth(Segments &segs, const BYTE *p, int Ppitch, const BYTE *n, int Npitch, // c removed in 3.2
-    BYTE *o, int Opitch, BYTE *c_noise, BYTE *c_motion, const Parms &parms) {
+void temporal_smooth(Segments &segs, const BYTE *p, int Ppitch, const BYTE *n, int Npitch,
+    BYTE *VS_RESTRICT o, int Opitch, BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT c_motion, const Parms &parms) {
         {
             int width = parms.width;
             int sigmann2 = (parms.tsmooth) * (parms.tsmooth); // approximate value of noise variance for Wiener temporal smoothing
@@ -1318,10 +1262,8 @@ void temporal_smooth(Segments &segs, const BYTE *p, int Ppitch, const BYTE *n, i
         }
 }
 
-
-
 void remove_segments(Segments &segs, const BYTE *p, int Ppitch, const BYTE *c, int Cpitch,
-    const BYTE *n, int Npitch, BYTE *o, int Opitch, BYTE *c_noise, const Parms &parms) {
+    const BYTE *n, int Npitch, BYTE *VS_RESTRICT o, int Opitch, BYTE *VS_RESTRICT c_noise, const Parms &parms) {
         {
             int width = parms.width;
             int blur = parms.blur;
@@ -1456,7 +1398,7 @@ void remove_segments(Segments &segs, const BYTE *p, int Ppitch, const BYTE *c, i
 //
 // set color at places of deleted spot to mean value - added in v.3.1
 //
-void clean_color_plane(const BYTE *p, int ppitch, const BYTE *c, int cpitch, const BYTE *n, int npitch, int widthUV, int heightUV, BYTE *c_noise, BYTE *o, int opitch, Parms &Params) // added in v.3.1
+void clean_color_plane(const BYTE *p, int ppitch, const BYTE *c, int cpitch, const BYTE *n, int npitch, int widthUV, int heightUV, BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT o, int opitch, Parms &Params) // added in v.3.1
 {
     int mult = (1 << 10) / 3;
     int y_next = Params.y_next;
@@ -1523,7 +1465,7 @@ void clean_color_plane(const BYTE *p, int ppitch, const BYTE *c, int cpitch, con
 // mark spots by color
 //
 
-void mark_color_plane(BYTE *c_noise, BYTE *ptrV, int pitchV, int widthUV, int heightUV, Parms &Params) {
+void mark_color_plane(BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT ptrV, int pitchV, int widthUV, int heightUV, Parms &Params) {
     int mark_v = Params.mark_v;
     int y_next = Params.y_next;
     BYTE mark_color = ((mark_v + 2) % 3) * mark_v / 2;
@@ -1572,7 +1514,7 @@ void mark_color_plane(BYTE *c_noise, BYTE *ptrV, int pitchV, int widthUV, int he
     }
 }
 
-void motion_count(BYTE *motion, int height, int width, int pitch, int *mcount) {
+static int motion_count(const BYTE *motion, int height, int width, int pitch) {
     // counter of motion points
     int count = 0;
     for (int y = 0; y < height; ++y) {
@@ -1582,19 +1524,17 @@ void motion_count(BYTE *motion, int height, int width, int pitch, int *mcount) {
         motion += pitch;
     }
 
-    *mcount = count;
+    return count;
 }
 
 //
 // set full motion map to motion at scenechange (if motion points percent > threshold)
 //
 
-void motion_scene(BYTE *motion, const Parms &parms) {
+void motion_scene(BYTE *VS_RESTRICT motion, const Parms &parms) {
     int width_mod8 = (parms.width / 8) * 8;
-    int count = 0;
-    // counter of motion points
 
-    motion_count(motion, parms.height, width_mod8, parms.pitch, &count);
+    int count = motion_count(motion, parms.height, width_mod8, parms.pitch);
 
     int mpercent = (count * 100) / (parms.height * width_mod8);
 
@@ -1607,7 +1547,7 @@ void motion_scene(BYTE *motion, const Parms &parms) {
     }
 }
 
-void add_external_mask(const BYTE *ext, int ext_pitch, BYTE *motion, int pitch, int width, int height) {	// add external mask of good objects (for example SAD<threshold) to motion
+void add_external_mask(const BYTE *ext, int ext_pitch, BYTE *VS_RESTRICT motion, int pitch, int width, int height) {	// add external mask of good objects (for example SAD<threshold) to motion
     // motion on input is binary mask 0 or 255
     //  result = ext>127 || motion
 

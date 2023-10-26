@@ -17,6 +17,8 @@ http://kevin.atkinson.dhs.org/temporal_median/
 */
 #include <string>
 #include <avs/types.h>
+#include <VapourSynth4.h>
+#include <VSHelper4.h>
 
 constexpr int S_DENOISE = 0;
 constexpr int S_MARK = 1;
@@ -113,40 +115,36 @@ struct Segments {
 
 typedef void Exec(const BYTE *p, int Ppitch,
     const BYTE *c, int Cpitch,
-    BYTE *c_noise, BYTE *c_motion,
+    BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT c_motion,
     const BYTE *n, int Npitch,
-    BYTE *o, int Opitch,
+    BYTE *VS_RESTRICT o, int Opitch,
     const Parms &);
 
-void find_sizes(BYTE *noise, Segments &segs, const Parms &);
+void find_sizes(BYTE *VS_RESTRICT noise, Segments &segs, const Parms &);
 
-void mark_noise(Segments &segs, BYTE *noise, const Parms &);
+void mark_noise(Segments &segs, BYTE *VS_RESTRICT noise, const Parms &);
 
 void find_motion(const BYTE *p, int Ppitch, const BYTE *c, int Cpitch,
-    BYTE *motion, const Parms &);
+    BYTE *VS_RESTRICT motion, const Parms &);
 Exec cond_median;
 
-void motion_denoise(BYTE *moving, const Parms &);
+void motion_denoise(BYTE *VS_RESTRICT moving, const Parms &);
 
 void find_outliers(const BYTE *p, int Ppitch, const BYTE *c, int Cpitch,
-    const BYTE *n, int Npitch, BYTE *c_noise, const Parms &);
-
-void mark_motion(const BYTE *p, int Ppitch, BYTE *p_noise,
-    const BYTE *c, int Cpitch, BYTE *c_noise, BYTE *c_motion,
-    const Parms &);
+    const BYTE *n, int Npitch, BYTE *VS_RESTRICT c_noise, const Parms &);
 
 Exec remove_outliers;
 Exec mark_outliers;
 Exec map_outliers;
 
-void noise_dilate(BYTE *noise, const Parms &);
-void reject_on_motion(Segments &segs, BYTE *motion, const Parms &p);
-void motion_merge(BYTE *c_motion, BYTE *n_motion, BYTE *m_motion, const Parms &parms);
-void noise_to_one(BYTE *p_noise, BYTE *c_noise, BYTE *c_motion, const Parms &parms);
-void remove_segments(Segments &segs, const BYTE *P, int Ppitch, const BYTE *C, int Cpitch, const BYTE *N, int Npitch, BYTE *o, int Opitch, BYTE *c_noise, const Parms &parms);
-void temporal_smooth(Segments &segs, const BYTE *P, int Ppitch, const BYTE *N, int Npitch, BYTE *o, int Opitch, BYTE *c_noise, BYTE *c_motion, const Parms &parms);
-void clean_color_plane(const BYTE *p, int ppitch, const BYTE *c, int cpitch, const BYTE *n, int npitch, int width, int height, BYTE *c_noise, BYTE *o, int opitch, Parms &Params);
-void mark_color_plane(BYTE *c_noise, BYTE *oV, int opitchV, int widthUV, int heightUV, Parms &Params);
-void motion_scene(BYTE *motion, const Parms &parms);
-void add_external_mask(const BYTE *ext, int ext_pitch, BYTE *motion, int pitch, int width, int height);
+void noise_dilate(BYTE *VS_RESTRICT noise, const Parms &);
+void reject_on_motion(Segments &segs, BYTE *VS_RESTRICT motion, const Parms &p);
+void motion_merge(BYTE *VS_RESTRICT c_motion, BYTE *VS_RESTRICT n_motion, BYTE *VS_RESTRICT m_motion, const Parms &parms);
+void noise_to_one(BYTE *VS_RESTRICT p_noise, BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT c_motion, const Parms &parms);
+void remove_segments(Segments &segs, const BYTE *P, int Ppitch, const BYTE *C, int Cpitch, const BYTE *N, int Npitch, BYTE *VS_RESTRICT o, int Opitch, BYTE *VS_RESTRICT c_noise, const Parms &parms);
+void temporal_smooth(Segments &segs, const BYTE *P, int Ppitch, const BYTE *N, int Npitch, BYTE *VS_RESTRICT o, int Opitch, BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT c_motion, const Parms &parms);
+void clean_color_plane(const BYTE *p, int ppitch, const BYTE *c, int cpitch, const BYTE *n, int npitch, int width, int height, BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT o, int opitch, Parms &Params);
+void mark_color_plane(BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT oV, int opitchV, int widthUV, int heightUV, Parms &Params);
+void motion_scene(BYTE *VS_RESTRICT motion, const Parms &parms);
+void add_external_mask(const BYTE *ext, int ext_pitch, BYTE *VS_RESTRICT motion, int pitch, int width, int height);
 void print_segments(const Segments &segs, FILE *f_ptr, int fn, double frate, int w, int h, int spotmax1, int spotmax2);

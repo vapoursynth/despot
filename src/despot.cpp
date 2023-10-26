@@ -288,12 +288,12 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment *env) {
                 print_segments(fn, env);
             }
         } else if (Params.motpn && Params.seg == 0) { // motion prev-next, no segments mode
-            // new mode - find motion prev to next - added in v.3.0
+            // new mode - find motion prev to next
             if (!c->motion) {
                 find_motion_prev_next(fn, env);
                 motion_denoise(c->motion, Params);
-                motion_scene(c->motion, Params); // added in v.3.3
-                if (extmask) // added in v3.5
+                motion_scene(c->motion, Params);
+                if (extmask)
                 {
                     PVideoFrame fextmask = extmask->GetFrame(fn, env);
                     add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), c->motion, Params.pitch, Params.width, Params.height);
@@ -303,7 +303,7 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment *env) {
             if (!c->noise) {
                 find_segments(fn, env);
                 mark_noise(c->segments, c->noise, Params);
-                noise_dilate(c->noise, Params); // added in v.1.3
+                noise_dilate(c->noise, Params);
             }
 
 
@@ -343,37 +343,37 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment *env) {
             if (extmask) // added in v3.5
             {
                 PVideoFrame fextmask = extmask->GetFrame(fn, env);
-                add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), buf.motion, Params.pitch, Params.width, Params.height); // v3.6
+                add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), buf.motion, Params.pitch, Params.width, Params.height);
             }
             reject_on_motion(c->segments, buf.motion, Params);
             if (Params.show == 0) {
                 env->BitBlt(fout_y, opitch, c->y, c->pitch, Params.width, Params.height); // copy as base
-                remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
-                if (Params.tsmooth > 0) temporal_smooth(c->segments, p->y, p->pitch, n->y, n->pitch, fout_y, opitch, c->noise, c->motion, Params);// must be added but was commented (bug)  in v.3.0, enabled in 3.2
+                remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
+                if (Params.tsmooth > 0) temporal_smooth(c->segments, p->y, p->pitch, n->y, n->pitch, fout_y, opitch, c->noise, c->motion, Params);
             } else if (Params.show == 1) {
-                remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
+                remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
                 mark_outliers(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
             } else { // =2
-                remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
+                remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
                 map_outliers(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
             }
-        } else if (Params.seg == 0) { // motion prev-cur and cur-next, no segments - old mode before v.3.0
+        } else if (Params.seg == 0) { // motion prev-cur and cur-next, no segments
             if (!c->motion) {
                 find_motion_prev_cur(fn, env);
                 find_motion_prev_cur(fn - 1, env);
                 if (!p->noise) {
                     find_segments(fn - 1, env);
                     mark_noise(p->segments, p->noise, Params);
-                    noise_dilate(p->noise, Params); // added in v.1.3
+                    noise_dilate(p->noise, Params); 
                 }
                 if (!c->noise) {
                     find_segments(fn, env);
                     mark_noise(c->segments, c->noise, Params);
-                    noise_dilate(c->noise, Params); // added in v.1.3
+                    noise_dilate(c->noise, Params);
                 }
                 noise_to_one(p->noise, c->noise, c->motion, Params);
                 motion_denoise(c->motion, Params);
-                motion_scene(c->motion, Params); // added in v.3.3
+                motion_scene(c->motion, Params);
             }
 
             if (!n->motion) {
@@ -381,19 +381,19 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment *env) {
                 if (!c->noise) {
                     find_segments(fn, env);
                     mark_noise(c->segments, c->noise, Params);
-                    noise_dilate(c->noise, Params); // added in v.1.3
+                    noise_dilate(c->noise, Params);
                 }
                 if (!n->noise) {
                     find_segments(fn + 1, env);
                     mark_noise(n->segments, n->noise, Params);
-                    noise_dilate(n->noise, Params); // added in v.1.3
+                    noise_dilate(n->noise, Params);
                 }
                 noise_to_one(c->noise, n->noise, n->motion, Params);
                 motion_denoise(n->motion, Params);
-                motion_scene(n->motion, Params); // added in v.3.3
+                motion_scene(n->motion, Params);
             }
-            motion_merge(c->motion, n->motion, buf.motion, Params); // added in v.3.0
-            if (extmask) // added in v3.5
+            motion_merge(c->motion, n->motion, buf.motion, Params);
+            if (extmask)
             {
                 PVideoFrame fextmask = extmask->GetFrame(fn, env);
                 add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), buf.motion, Params.pitch, Params.width, Params.height);
@@ -414,7 +414,7 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment *env) {
             env->BitBlt(fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
                 c->frame->GetReadPtr(PLANAR_V), c->frame->GetPitch(PLANAR_V),
                 c->frame->GetRowSize(PLANAR_V), c->frame->GetHeight(PLANAR_V));
-        } else if ((Params.show && S_MARK) && !Params.median) // median bug fixed in v.3.2
+        } else if ((Params.show && S_MARK) && !Params.median)
         {// copy color planes
             env->BitBlt(fout->GetWritePtr(PLANAR_U), fout->GetPitch(PLANAR_U),
                 c->frame->GetReadPtr(PLANAR_U), c->frame->GetPitch(PLANAR_U),
