@@ -33,7 +33,7 @@ http://kevin.atkinson.dhs.org/temporal_median/
 #include <cstring>
 #include <cmath>
 #include <cstdlib>
-#include <memory>
+#include <malloc.h>
 
 static void memzero(void * d0, size_t s) {
   memset(d0, 0, s);
@@ -1608,8 +1608,7 @@ void clean_color_plane(const BYTE *p, int ppitch, const BYTE * c, int cpitch, co
 		  // check 4 points of luma noise
 		  if ( c_noise[i*2] || c_noise[i*2+1] || c_noise[i*2 + noisePitch] || c_noise[i*2 + noisePitch + 1] )
 		  {
-//			o[i] = (p[i] + n[i] + c[i])/3;
-			o[i] = ((p[i] + n[i] + c[i])*mult)>>10; // v.3.6.0 - faster!
+			o[i] = (p[i] + n[i] + c[i])/3;
 		  }
 		  else
 		  {
@@ -1624,7 +1623,7 @@ void clean_color_plane(const BYTE *p, int ppitch, const BYTE * c, int cpitch, co
 
 	}
   }
-  else if (heightUV == Params.height && widthUV==Params.width/2 ) // YUY2 planar - v3.6.0
+  else if (heightUV == Params.height && widthUV==Params.width/2 ) // YV16
   {
 	for (int j=0; j<heightUV; j++)
 	{
@@ -1633,8 +1632,7 @@ void clean_color_plane(const BYTE *p, int ppitch, const BYTE * c, int cpitch, co
 		  // check 2 points of luma noise
 		  if ( c_noise[i*2] || c_noise[i*2+1] )
 		  {
-//			o[i] = (p[i] + n[i] + c[i])/3;
-			o[i] = ((p[i] + n[i] + c[i])*mult)>>10; // v.3.6.0 - faster!
+			o[i] = (p[i] + n[i] + c[i])/3;
 		  }
 		  else
 		  {
@@ -1648,6 +1646,25 @@ void clean_color_plane(const BYTE *p, int ppitch, const BYTE * c, int cpitch, co
 	c_noise += Params.pitch;
 
 	}
+  }
+  else if (heightUV == Params.height && widthUV == Params.width) // YV24
+  {
+	  for (int j = 0; j < heightUV; j++) {
+		  for (int i = 0; i < widthUV; i++) {
+			  // check 2 points of luma noise
+			  if (c_noise[i * 2]) {
+				  o[i] = (p[i] + n[i] + c[i]) / 3;
+			  } else {
+				  o[i] = c[i];
+			  }
+		  }
+		  p += ppitch;
+		  c += cpitch;
+		  n += npitch;
+		  o += opitch;
+		  c_noise += Params.pitch;
+
+	  }
   }
 }
 
@@ -1673,16 +1690,16 @@ void mark_color_plane(BYTE * c_noise,	BYTE * ptrV, int pitchV, int widthUV, int 
 		  if  (  (c_noise[i*2]	== 255)
 			  || (c_noise[i*2 + 1]	== 255)
 			  || (c_noise[noisePitch + i*2]	== 255)
-			  || (c_noise[noisePitch + i*2 + 1] == 255) ) // corrected for interlaced in v.3.1
+			  || (c_noise[noisePitch + i*2 + 1] == 255) )
 		  {
 			ptrV[i] = mark_color; // mark spot by color
 		  }
 	  }
 	  ptrV += pitchV;
-	c_noise += Params.pitch*(1 + (y_next%2) + 2*(j%y_next)); //fixed v.3.6.1
+	c_noise += Params.pitch*(1 + (y_next%2) + 2*(j%y_next));
 	}
   }
-  else if (heightUV == Params.height && widthUV==Params.width/2 ) // YUY2 planar - v3.6.0
+  else if (heightUV == Params.height && widthUV==Params.width/2 ) // YV16
   {
 	for (int j=0; j<heightUV; j++)
 	{
@@ -1698,6 +1715,19 @@ void mark_color_plane(BYTE * c_noise,	BYTE * ptrV, int pitchV, int widthUV, int 
 	  ptrV += pitchV;
 	c_noise += Params.pitch;
 	}
+  }
+  else if (heightUV == Params.height && widthUV == Params.width) // YV24
+  {
+	  for (int j = 0; j < heightUV; j++) {
+		  for (int i = 0; i < widthUV; i++) {
+			  // check 2 points of luma noise
+			  if (c_noise[i * 2] == 255) {
+				  ptrV[i] = mark_color; // mark spot by color
+			  }
+		  }
+		  ptrV += pitchV;
+		  c_noise += Params.pitch;
+	  }
   }
 }
 

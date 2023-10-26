@@ -95,7 +95,6 @@ class Filter : public GenericVideoFilter {
 	PClip extmask;
 
 	Parms Params;
-	bool planarYUY2;
 	Buffer buf;
 	FILE *	outfile_ptr;
 
@@ -106,22 +105,17 @@ class Filter : public GenericVideoFilter {
 	void print_segments (int fn, IScriptEnvironment* env);
 
 public:
-	Filter (PClip _child, PClip _extmask, Parms _Params, bool _planarYUY2, IScriptEnvironment* env); //v3.5
+	Filter (PClip _child, PClip _extmask, Parms _Params, IScriptEnvironment* env); //v3.5
   ~Filter();
 	PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);
 };
 
 
-Filter::Filter(PClip _child, PClip _extmask, Parms _Params, bool _planarYUY2, IScriptEnvironment* env) :
+Filter::Filter(PClip _child, PClip _extmask, Parms _Params, IScriptEnvironment* env) :
 GenericVideoFilter(_child), extmask(_extmask), Params(_Params), outfile_ptr (0) {
 
-    planarYUY2 = _planarYUY2;
-
-	if (!vi.IsYV12() && !vi.IsYUY2())
-        env->ThrowError("DeSpot: input to filter must be in YV12 or YUY2 planar!");
-
-    if (vi.IsYUY2() && !planarYUY2)
-        env->ThrowError("DeSpot: YUY2 planar is supported with option: planar=true");
+	if (!vi.IsYV12() && !vi.IsYV16() && !vi.IsYV24())
+        env->ThrowError("DeSpot: input to filter must be in YV12, YV16 or YV24!");
 
 	buf.childclip = child;
 	buf.num_frames = vi.num_frames;
@@ -460,70 +454,35 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment* env )
 		// now process color planes
 		if (Params.show == S_MAP && !Params.show_chroma)
 		{ //  grey map
-		  if (vi.IsPlanar())
-		  {
 		  memset( fout->GetWritePtr(PLANAR_U), 0x80,
 				 fout->GetPitch(PLANAR_U)*fout->GetHeight(PLANAR_U) );
 		  memset(fout->GetWritePtr(PLANAR_V), 0x80,
 				 fout->GetPitch(PLANAR_V)*fout->GetHeight(PLANAR_V));
-		  }
-		  else // pseudo-planar YUY2
-		  {
-		      BYTE *pU = fout->GetWritePtr() + Params.width;
-		      for (int h=0; h<Params.height; h++)
-		      {
-                memset( pU, 0x80, fout->GetRowSize()-Params.width ); // U,V
-                pU += fout->GetPitch();
-		      }
-		  }
 		}
 		else if (Params.show == S_MAP && Params.show_chroma)
 		{// copy color planes
-		  if (vi.IsPlanar())
-		  {
 			env->BitBlt(fout->GetWritePtr(PLANAR_U), fout->GetPitch(PLANAR_U),
 						c->frame->GetReadPtr(PLANAR_U),	c->frame->GetPitch(PLANAR_U),
 						c->frame->GetRowSize(PLANAR_U),	c->frame->GetHeight(PLANAR_U));
 			env->BitBlt(fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
 						c->frame->GetReadPtr(PLANAR_V),	c->frame->GetPitch(PLANAR_V),
 						c->frame->GetRowSize(PLANAR_V),	c->frame->GetHeight(PLANAR_V));
-		  }
-		  else // pseudo-planar YUY2
-		  {
-			env->BitBlt(fout->GetWritePtr()+Params.width, fout->GetPitch(),
-						c->frame->GetReadPtr()+Params.width,	c->frame->GetPitch(),
-						c->frame->GetRowSize()-Params.width,	c->frame->GetHeight());
-		  }
 		}
 		else if ((Params.show && S_MARK) && !Params.median) // median bug fixed in v.3.2
 		{// copy color planes
-		  if (vi.IsPlanar())
-		  {
 			env->BitBlt(fout->GetWritePtr(PLANAR_U), fout->GetPitch(PLANAR_U),
 						c->frame->GetReadPtr(PLANAR_U),	c->frame->GetPitch(PLANAR_U),
 						c->frame->GetRowSize(PLANAR_U),	c->frame->GetHeight(PLANAR_U));
 			env->BitBlt(fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
 						c->frame->GetReadPtr(PLANAR_V),	c->frame->GetPitch(PLANAR_V),
 						c->frame->GetRowSize(PLANAR_V),	c->frame->GetHeight(PLANAR_V));
-		  // change color of marked noise to pink - added in v.1.2
-			mark_color_plane(c->noise,	fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
-				fout->GetRowSize(PLANAR_V), fout->GetHeight(PLANAR_V), Params);// added in v.3.1
-		  }
-		  else // pseudo-planar YUY2
-		  {
-			env->BitBlt(fout->GetWritePtr()+Params.width, fout->GetPitch(),
-						c->frame->GetReadPtr()+Params.width,	c->frame->GetPitch(),
-						c->frame->GetRowSize()-Params.width,	c->frame->GetHeight());
 		  // change color of marked noise to pink
-			mark_color_plane(c->noise,	fout->GetWritePtr()+Params.width*3/2, fout->GetPitch(),
-				(fout->GetRowSize()-Params.width)/2, fout->GetHeight(), Params);
-		  }
+			mark_color_plane(c->noise,	fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
+				fout->GetRowSize(PLANAR_V), fout->GetHeight(PLANAR_V), Params);
 		}
-		else if (Params.color && !Params.median)// median bug fixed in v.3.2
+		else if (Params.color && !Params.median)
 		{	// normal mode with color
-			// clean color YUV12 planes at places of luma spots (noise) - added in v.3.1
-		  if (vi.IsPlanar())
-		  {
+			// clean color YUV12 planes at places of luma spots (noise)
 			clean_color_plane(p->frame->GetReadPtr(PLANAR_U), p->frame->GetPitch(PLANAR_U),
 				c->frame->GetReadPtr(PLANAR_U), c->frame->GetPitch(PLANAR_U),
 				n->frame->GetReadPtr(PLANAR_U), n->frame->GetPitch(PLANAR_U),
@@ -534,38 +493,15 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment* env )
 				n->frame->GetReadPtr(PLANAR_V), n->frame->GetPitch(PLANAR_V),
 				c->frame->GetRowSize(PLANAR_V), c->frame->GetHeight(PLANAR_V),
 				c->noise, fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V), Params);
-		  }
-		  else // pseudo-planar YUY2
-		  {
-			clean_color_plane(p->frame->GetReadPtr()+Params.width, p->frame->GetPitch(),
-				c->frame->GetReadPtr()+Params.width, c->frame->GetPitch(),
-				n->frame->GetReadPtr()+Params.width, n->frame->GetPitch(),
-				c->frame->GetRowSize()/4, c->frame->GetHeight(),
-				c->noise, fout->GetWritePtr()+Params.width,fout->GetPitch(), Params);
-			clean_color_plane(p->frame->GetReadPtr()+Params.width*3/2, p->frame->GetPitch(),
-				c->frame->GetReadPtr()+Params.width*3/2, c->frame->GetPitch(),
-				n->frame->GetReadPtr()+Params.width*3/2, n->frame->GetPitch(),
-				c->frame->GetRowSize()/4, c->frame->GetHeight(),
-				c->noise, fout->GetWritePtr()+Params.width*3/2,fout->GetPitch(), Params);
-		  }
 		}
 		else
 		{ // mormal mode, copy color planes
-		  if (vi.IsPlanar())
-		  {
 			env->BitBlt(fout->GetWritePtr(PLANAR_U), fout->GetPitch(PLANAR_U),
 						c->frame->GetReadPtr(PLANAR_U),	c->frame->GetPitch(PLANAR_U),
 						c->frame->GetRowSize(PLANAR_U),	c->frame->GetHeight(PLANAR_U));
 			env->BitBlt(fout->GetWritePtr(PLANAR_V), fout->GetPitch(PLANAR_V),
 						c->frame->GetReadPtr(PLANAR_V),	c->frame->GetPitch(PLANAR_V),
 						c->frame->GetRowSize(PLANAR_V),	c->frame->GetHeight(PLANAR_V));
-		  }
-		  else // pseudo-planar YUY2
-		  {
-			env->BitBlt(fout->GetWritePtr()+Params.width, fout->GetPitch(),
-						c->frame->GetReadPtr()+Params.width,	c->frame->GetPitch(),
-						c->frame->GetRowSize()-Params.width,	c->frame->GetHeight());
-		  }
 		}
 
 		return fout; // result
@@ -633,8 +569,6 @@ AVSValue __cdecl Create_Despot(AVSValue args, void* user_data, IScriptEnvironmen
 	i++;
 	int iextmask=i;
 	i++; // planar
-	int planar=i;
-	++ i;
 	p.outfilename = args [i].Defined () ? args [i].AsString () : "";
 	++ i;
 	p.mc_flag = args [i].AsBool (false);
@@ -643,14 +577,13 @@ AVSValue __cdecl Create_Despot(AVSValue args, void* user_data, IScriptEnvironmen
 	p.spotmax2 = 20;
 	SET_INT (spotmax2,1,10000000);
 
-	return new Filter(args[0].AsClip(), args[iextmask].Defined () ? args[iextmask].AsClip() : 0, p,  args[planar].AsBool(false), env);
+	return new Filter(args[0].AsClip(), args[iextmask].Defined () ? args[iextmask].AsClip() : 0, p, env);
     // Calls the constructor with the arguments provied.
 }
 
-
 // change mp (absolute) to merode (relative percent) in v.2.0
 #define common_parms  "c[mthres]i[mwidth]i[mheight]i[merode]i[interlaced]b[median]b"
-#define denoise_parms "[p1]i[p2]i[pwidth]i[pheight]i[ranked]b[sign]i[maxpts]i[p1percent]i[dilate]i[fitluma]b[blur]i[tsmooth]i[show]i[mark_v]i[show_chroma]b[motpn]b[seg]i[color]b[mscene]i[minpts]i[extmask]c[planar]b[outfile]s[mc]b[spotmax1]i[spotmax2]i"
+#define denoise_parms "[p1]i[p2]i[pwidth]i[pheight]i[ranked]b[sign]i[maxpts]i[p1percent]i[dilate]i[fitluma]b[blur]i[tsmooth]i[show]i[mark_v]i[show_chroma]b[motpn]b[seg]i[color]b[mscene]i[minpts]i[extmask]c[outfile]s[mc]b[spotmax1]i[spotmax2]i"
 
 // The following function is the function that actually registers the filter in AviSynth
 // It is called automatically, when the plugin is loaded to see which functions this filter contains.
