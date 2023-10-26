@@ -26,9 +26,10 @@ http://kevin.atkinson.dhs.org/temporal_median/
 #define S_MAP     2
 
 struct Parms {
-    size_t size;
-    int width, height;
-    int pitch;
+    size_t size = 0;
+    int width = -1;
+    int height = -1;
+    int pitch = -1;
     BYTE p1 = 24;
     BYTE p2 = 12;
     short pwidth = 16;
@@ -57,9 +58,9 @@ struct Parms {
     int minpts = 0;
 
     std::string	outfilename;
-    bool mc_flag;
-    int spotmax1;
-    int spotmax2;
+    bool mc_flag = false;
+    int spotmax1 = 12;
+    int spotmax2 = 20;
 };
 
 constexpr char B_NOTHING = 0;

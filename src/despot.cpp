@@ -476,45 +476,43 @@ AVSValue __cdecl Create_Despot(AVSValue args, void *user_data, IScriptEnvironmen
     SET_INT(mthres, 0, 255);
     SET_INT(mwidth, 0, 32000);
     SET_INT(mheight, 0, 32000);
-    SET_INT(merode, 0, 100); // mp is changed to merode - relative percent of (MWidth+1)*(MHeight+1) in v.2.0
+    SET_INT(merode, 0, 100);
     i++;
     if (args[i].Defined()) p.y_next = args[i].AsBool(false) ? 2 : 1;  //interlaced
     i++;
-    p.median = args[i].AsBool(false); //median
+    p.median = args[i].AsBool(false);
     SET_INT(p1, 0, 255);
     SET_INT(p2, 0, 255);
     SET_INT(pwidth, 0, 32000);
     SET_INT(pheight, 0, 32000);
     i++;
-    p.ranked = args[i].AsBool(true); //ranked
+    p.ranked = args[i].AsBool(true);
     SET_INT(sign, -2, 2);
     SET_INT(maxpts, 0, 10000000);
     SET_INT(p1percent, 0, 100);
     SET_INT(dilate, 0, 1000);
     i++;
-    p.fitluma = args[i].AsBool(false); //fitluma
+    p.fitluma = args[i].AsBool(false);
     SET_INT(blur, 0, 4);
     SET_INT(tsmooth, 0, 255);
     SET_INT(show, 0, 2);
     SET_INT(mark_v, 0, 255);
     i++;
-    p.show_chroma = args[i].AsBool(false); //show_chroma
+    p.show_chroma = args[i].AsBool(false);
     i++;
-    p.motpn = args[i].AsBool(true); //motpn - changed to true in v3.5
+    p.motpn = args[i].AsBool(true);
     SET_INT(seg, 0, 2);
     i++;
-    p.color = args[i].AsBool(false); //clean color - added in v.3.1
+    p.color = args[i].AsBool(false);
     SET_INT(mscene, 0, 100);
-    SET_INT(minpts, 0, 10000000); // v.3.4
+    SET_INT(minpts, 0, 10000000);
     i++;
     int iextmask = i;
     i++; // planar
     p.outfilename = args[i].Defined() ? args[i].AsString() : "";
     ++i;
     p.mc_flag = args[i].AsBool(false);
-    p.spotmax1 = 12;
     SET_INT(spotmax1, 1, 10000000);
-    p.spotmax2 = 20;
     SET_INT(spotmax2, 1, 10000000);
 
     return new Filter(args[0].AsClip(), args[iextmask].Defined() ? args[iextmask].AsClip() : 0, p, env);
