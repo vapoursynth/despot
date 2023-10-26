@@ -161,23 +161,21 @@ void to_size(Segments & segs, const Parms & p)
 		  Segment::Data & b = cur->data;
 		  short w = b.b.x2 - b.b.x1 + 1;
 		  short h = b.b.y2 - b.b.y1 + 1;
-//		  cur->what = B_SIZE; // why to lose a master-link info? - removed in v.3.0
 		  b.s.is_noise = cur->p1yes && w <= p.pwidth && h <= PH;
 
-			if (p.maxpts > 0 && b.s.is_noise) { //  added in v.1.2
+			if (p.maxpts > 0 && b.s.is_noise) {
 				// accept only  segments with not very many points
 				b.s.is_noise = cur->nump2 <= p.maxpts;
 			}
 
-			if (p.minpts > 0 && b.s.is_noise) { //  added in v.3.4
+			if (p.minpts > 0 && b.s.is_noise) {
 				// accept only  segments with not very many points
 				b.s.is_noise = cur->nump2 >= p.minpts;
 			}
 
-			 if (p.p1percent > 0 && b.s.is_noise) { //  added in v.1.2
+			 if (p.p1percent > 0 && b.s.is_noise) {
 				// accept only strong segments with big relative number of truth spot (not outliers)
-//				b.s.is_noise = 100*float(cur->nump1)/cur->nump2 >= p.p1percent;
-				b.s.is_noise = (100*cur->nump1)/cur->nump2 >= p.p1percent; // remove float for safer MMX? - v3.5.2
+				b.s.is_noise = (100*cur->nump1)/cur->nump2 >= p.p1percent;
 			 }
 
 		  b.s.width = w; // where are it used ?
@@ -201,8 +199,6 @@ void find_sizes(BYTE * noise, Segments & segs, const Parms & parms)
   to_size(segs, parms);
 }
 
-
-
 void mark_noise(Segments & segs, BYTE * l, const Parms & p)
 {
   memzero(l, p.size);
@@ -217,7 +213,7 @@ void mark_noise(Segments & segs, BYTE * l, const Parms & p)
         for (; b != end; ++b) *b = 0xFF; // 255 is noise (spots)
       }
     }
-    l += p.pitch;// width; v.3.2
+    l += p.pitch;
   }
 }
 
@@ -233,7 +229,7 @@ void reject_on_motion(Segments & segs, BYTE * motion, const Parms & p)
 
 	// reverse order is more fast because most segments has master segment
 	Segment * c = segs.end-1;
-	BYTE * mot = motion + (p.height-1)*p.pitch;// width; v.3.2
+	BYTE * mot = motion + (p.height-1)*p.pitch;
 
   // First pass - search segments over or near motion pixels and reject its  and all its masters
   for (int y = p.height-1; y >= 0; y--) {
@@ -323,7 +319,7 @@ void reject_on_motion(Segments & segs, BYTE * motion, const Parms & p)
 
 void find_mot_line(const BYTE * p, const BYTE * c, BYTE * motion, int width, int mthres )
 {
-    for (int x = 0; x < width; ++x) // v3.5
+    for (int x = 0; x < width; ++x)
     {
       if (abs(p[x] - c[x]) > mthres) motion[x] = 3; //  motion without noise
       else                           motion[x] = 0; // 0 is no motion
@@ -367,8 +363,6 @@ void motion_summation(BYTE * moving, signed char * r, int w, int h, int y1, int 
 		}
 }
 
-
-
 void motion_denoise(BYTE * moving, const Parms & p)
 {
   // This function is based on the motion map denoise code found in
@@ -392,10 +386,11 @@ void motion_denoise(BYTE * moving, const Parms & p)
   const int MHEIGHT_2 = p.mheight/2;
   const int MWIDTH_2  = p.mwidth/2;
   const int Y_NEXT    = p.y_next;
-  const int MPx3      = (p.merode*3*(p.mwidth+1)*(p.mheight+1))/100; // multiplied by mratio (default =3) because motion pixels mark=mratio - changed in v 2.1
+  const int MPx3      = (p.merode*3*(p.mwidth+1)*(p.mheight+1))/100; // multiplied by mratio (default =3) because motion pixels mark=mratio
 
 
-  if (MHEIGHT_2 == 0 && MWIDTH_2 == 0) return; // nothing to do
+  if (MHEIGHT_2 == 0 && MWIDTH_2 == 0)
+	  return;
 
   //(only dynamic arrays with non-constant size):
   BYTE * fmoving = (BYTE *) malloc(sizeof(BYTE) * h*w);
@@ -409,12 +404,12 @@ void motion_denoise(BYTE * moving, const Parms & p)
 	  // Erode
 
 	  for (int i=0; i<Y_NEXT; i++) {
-		  memzero(&row[i*rowpadded_size], rowpadded_size); // v.3.2
+		  memzero(&row[i*rowpadded_size], rowpadded_size);
 	  }
 
 	  for (int y = -(MHEIGHT_2)*Y_NEXT; y < h; ++y)
 	  {
-		signed char * r = row + (y & (Y_NEXT - 1)) + 32; // v.3.2
+		signed char * r = row + (y & (Y_NEXT - 1)) + 32;
 		int y1 = y - (MHEIGHT_2)*Y_NEXT - Y_NEXT;
 		int	y2 = y + (MHEIGHT_2)*Y_NEXT;
 		motion_summation(moving, r,  w,  h,  y1,  y2);
@@ -506,38 +501,34 @@ void noise_dilate(BYTE * moving, const Parms & p)
 
   // (only dynamic arrays with non-constant size):
   size_t rowpadded_size = ((w+64)/8)*8 + 8;
-  signed char * row = (signed char *) _alloca( sizeof(char)*p.y_next*rowpadded_size ); // added in v.3.2, changed to alloca in 3.3
+  signed char * row = (signed char *) _alloca( sizeof(char)*p.y_next*rowpadded_size );
 
-  // we use p.dilate instead of both mheight/2 and mwidth/2 -  changed in v.1.3
-  const int MHEIGHT_2 = p.dilate;//was p.mheight/2;
-  const int MWIDTH_2  = p.dilate;//was p.mwidth/2;
+  // we use p.dilate instead of both mheight/2 and mwidth/2
+  const int MHEIGHT_2 = p.dilate;
+  const int MWIDTH_2  = p.dilate;
   const int Y_NEXT    = p.y_next;
 
-  int x, y; // inplace of multiple declarations of  x and y in v.1.1  for compatibility with VC
-	int i;
   // for noise map expanding, we will not use erode, but only dilate
-
-
 
   // we do not use erode, but we must initialize  fmoving,
 	//simply from  noise array data, but of 1 and 0 (not 255 and 0)
 	// code added instead of erode in v 1.3 :
-	for (y=0; y<h; y++)
+	for (int y=0; y<h; y++)
 	{
       BYTE * r2 = moving + w * y; // lines
       BYTE * fw = fmoving + w * y;
-	  for (x=0; x<w; x++)
+	  for (int x=0; x<w; x++)
 	  {
 		  fw[x] = r2[x] ? 1 : 0;
 	  }
 	}
 
   // Dilate
-  for (i=0; i<Y_NEXT; i++) {
+  for (int i=0; i<Y_NEXT; i++) {
 	  memzero(&row[i*rowpadded_size], rowpadded_size);
   }
 
-  for ( y = -(MHEIGHT_2)*Y_NEXT; y < h; ++y)
+  for (int y = -(MHEIGHT_2)*Y_NEXT; y < h; ++y)
   {
     signed char * r = row + (y & (Y_NEXT - 1)) + 32;
     int y1 = y - (MHEIGHT_2)*Y_NEXT - Y_NEXT, y2 = y + (MHEIGHT_2)*Y_NEXT;
@@ -548,9 +539,9 @@ void noise_dilate(BYTE * moving, const Parms & p)
 	{
       BYTE * fw = moving + w * y;
       int total = 0;
-      for ( x = 0; x != MWIDTH_2; ++x)
+      for (int x = 0; x != MWIDTH_2; ++x)
         total += r[x];
-      for ( x = 0; x != w; ++x)
+      for (int x = 0; x != w; ++x)
 	  {
         total -= r[x - MWIDTH_2 - 1];
         total += r[x + MWIDTH_2];
@@ -1676,12 +1667,11 @@ void mark_color_plane(BYTE * c_noise,	BYTE * ptrV, int pitchV, int widthUV, int 
 {
 	int mark_v = Params.mark_v;
 	int y_next = Params.y_next;
-	int noisePitch;
 	BYTE mark_color = ((mark_v+2)%3)*mark_v/2;
 
   if (heightUV == Params.height/2 && widthUV==Params.width/2 ) // YV12
   {
-	noisePitch = Params.pitch*y_next;
+	int noisePitch = Params.pitch*y_next;
 	for (int j=0; j<heightUV; j++)
 	{
 	  for (int i=0; i<widthUV; i++)
@@ -1773,7 +1763,7 @@ void motion_scene(BYTE * motion, const Parms & parms)
 }
 
 void add_external_mask(const BYTE * ext, int ext_pitch, BYTE * motion, int pitch, int width, int height)
-{	// add external mask of good objects (for example SAD<threshold) to motion - added in v.3.5
+{	// add external mask of good objects (for example SAD<threshold) to motion
 	// motion on input is binary mask 0 or 255
 	//  result = ext>127 || motion
 

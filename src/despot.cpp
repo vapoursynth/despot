@@ -180,7 +180,6 @@ Filter::~Filter() {
 
 void Filter::find_segments(int fn, IScriptEnvironment* env ) // added in v.3.0
 {
-//  clog << "Find Segments: " << fn << endl;
   Frame * p = buf.get_frame(fn-1, env);
   Frame * c = buf.get_frame(fn, env);
   buf.alloc_noise(c);
@@ -190,11 +189,9 @@ void Filter::find_segments(int fn, IScriptEnvironment* env ) // added in v.3.0
     ::find_outliers(p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, c->noise, Params);
     ::find_sizes(c->noise, c->segments, Params);
   }
-//sprintf(debugbuf,"DeSpot: reject fn+1 %d n %d\n", fn+1, n);
-//OutputDebugString(debugbuf);
 }
 
-void Filter::find_motion_prev_cur(int fn, IScriptEnvironment* env) // - changed in v.3.0 inplace of simple
+void Filter::find_motion_prev_cur(int fn, IScriptEnvironment* env)
 {
 //  clog << "Find Motion: " << fn << endl;
   Frame * p = buf.get_frame(fn-1, env);
@@ -249,8 +246,6 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment* env )
   if (p && n)
   {
 		PVideoFrame fout = env->NewVideoFrame(vi);
-		//MutableRow fout_y;
-		//fout_y.data = fout->GetWritePtr();
 		BYTE * fout_y = fout->GetWritePtr();
 		int opitch = fout->GetPitch();
 //		clog << "Render " << "Frame " << ": " << fn << endl;
@@ -260,28 +255,28 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment* env )
 			if (!c->motion)
 			{
 				find_motion_prev_cur(fn, env);
-				motion_denoise(c->motion, Params); // v.3.2
+				motion_denoise(c->motion, Params);
 			}
 			if (!n->motion)
 			{
 				find_motion_prev_cur(fn+1, env);
-				motion_denoise(n->motion, Params); // v.3.2
+				motion_denoise(n->motion, Params);
 			}
 			motion_merge(c->motion, n->motion, buf.motion, Params);
 			(*exec_median[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
 		}
 		else if (Params.motpn && Params.seg != 0)
 		{ // motion prev-next,  segments mode
-			// new mode - find motion prev to next - added in v.3.0
+			// new mode - find motion prev to next
 			if (!c->motion)
 			{
 				find_motion_prev_next(fn, env);
 				motion_denoise(c->motion, Params);
-				motion_scene(c->motion, Params); // added in v.3.3
-				if (extmask) // added in v3.5
+				motion_scene(c->motion, Params);
+				if (extmask)
 				{
 					PVideoFrame fextmask = extmask->GetFrame(fn, env);
-					add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), c->motion, Params.pitch, Params.width, Params.height); // fixed pitch in v3.5.3
+					add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), c->motion, Params.pitch, Params.width, Params.height);
 				}
 			}
 
@@ -294,17 +289,17 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment* env )
 			if (Params.show == 0)
 			{
 				env->BitBlt(fout_y, opitch, c->y, c->pitch, Params.width, Params.height);
-				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
-				if (Params.tsmooth>0)temporal_smooth(c->segments, p->y, p->pitch, n->y, n->pitch, fout_y, opitch, c->noise, c->motion, Params);// add condition in v.3.2
+				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
+				if (Params.tsmooth>0)temporal_smooth(c->segments, p->y, p->pitch, n->y, n->pitch, fout_y, opitch, c->noise, c->motion, Params);
 			}
 			else if (Params.show == 1)
 			{
-				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
+				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
 				mark_outliers(p->y, p->pitch, c->y,c->pitch,  c->noise, c->motion, n->y, n->pitch, fout_y, opitch, Params);
 			}
 			else
 			{ // =2
-				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
+				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
 				map_outliers(p->y, p->pitch,c->y, c->pitch,c->noise, c->motion, n->y, n->pitch,fout_y, opitch,Params);
 			}
 
