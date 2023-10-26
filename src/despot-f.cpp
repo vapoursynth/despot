@@ -852,8 +852,8 @@ void find_outliers(const BYTE * p, int Ppitch, const BYTE * c, int Cpitch,
 		o += parms.pitch;
 	}
 
-	delete minpn;
-	delete maxpn;
+	delete[] minpn;
+	delete[] maxpn;
 
 }}
 
@@ -1041,7 +1041,7 @@ void lineblur(BYTE * c_noise, BYTE * c_motion, BYTE * o, int width, const Parms 
 
 }
 
-_inline void tsmooth_line(const BYTE * p, const BYTE * n, BYTE * o, BYTE * c_noise, BYTE * c_motion, int width, int tsmoothLimit)
+void tsmooth_line(const BYTE * p, const BYTE * n, BYTE * o, BYTE * c_noise, BYTE * c_motion, int width, int tsmoothLimit)
 {
 
 	for (int x = 0; x != width; ++x)
@@ -1064,7 +1064,7 @@ _inline void tsmooth_line(const BYTE * p, const BYTE * n, BYTE * o, BYTE * c_noi
 void remove_outliers(const BYTE * p, int Ppitch,
                      const BYTE * c, int Cpitch,
 					 BYTE * c_noise, BYTE * c_motion,
-                     const BYTE * n, int Npitch, 		// BYTE * n_motion, - remove parameter in v.3.0
+                     const BYTE * n, int Npitch,
                      BYTE * o, int Opitch,
                      const Parms & parms)
 {{
@@ -1090,8 +1090,8 @@ void remove_outliers(const BYTE * p, int Ppitch,
 		{
 			if (c_noise[x] && !c_motion[x])
 			{
-      			// luma correction  of deleted spot place - added in v. 0.934
-				int ox = ((p[x] + n[x])>>1) + lumad; // changed in v.3.2
+      			// luma correction  of deleted spot place
+				int ox = ((p[x] + n[x])>>1) + lumad;
       			o[x] = std::min(std::max(ox, 0), 255);
 			}
 			else  	
@@ -1104,7 +1104,7 @@ void remove_outliers(const BYTE * p, int Ppitch,
 		{
 			if (c_noise[x] && !c_motion[x])
 			{
-				o[x] = (p[x] + n[x])>>1; // changed in v.3.2
+				o[x] = (p[x] + n[x])>>1;
 			}
 			else  
 				o[x] = c[x];
@@ -1112,7 +1112,7 @@ void remove_outliers(const BYTE * p, int Ppitch,
 
 	}
 
-		// blur line near spot segments  - added in v.0.934
+		// blur line near spot segments
 		if (parms.blur) lineblur(c_noise, c_motion, o, width, parms);
 
     if (parms.tsmooth)
@@ -1260,10 +1260,6 @@ void map_segments(Segments & segs, const BYTE * p, int Ppitch,
   }
 }
 
-//
-//
-// Added in v. 3.0 :
-
 void motion_merge(BYTE * c_motion, BYTE * n_motion, BYTE * m_motion,  const Parms & parms)
 {
   for (int y = 0; y != parms.height; ++y)
@@ -1281,8 +1277,6 @@ void motion_merge(BYTE * c_motion, BYTE * n_motion, BYTE * m_motion,  const Parm
 
 
 //    1D  line triangle blur near deleted spot segments.
-//    Added in v.1.0
-//
 
 void segment_blur(BYTE * o, int x1, int x2, int blur, BYTE * b)
 {
@@ -1387,7 +1381,7 @@ void segment_blur(BYTE * o, int x1, int x2, int blur, BYTE * b)
 
 
 //
-// temporal smoothing - rewrited as function in 3.0 ,
+// temporal smoothing
 
 void temporal_smooth(Segments & segs, const BYTE * p, int Ppitch,  const BYTE * n, int Npitch, // c removed in 3.2
 					 BYTE * o, int Opitch, BYTE * c_noise, BYTE * c_motion, const Parms & parms)
