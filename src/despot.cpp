@@ -30,51 +30,32 @@ http://kevin.atkinson.dhs.org/temporal_median/
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-//  I replace all names from "border" to "segment" in v.3.0 (Fizick)
-
-//#include <assert.h>
-
 #include <avisynth.h>
 
-#include <malloc.h> //  3.2
-
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
 #include <cmath>
-//#include <stdlib.h>
 
 #include "despot.hpp"
 
-//#include "stdio.h" // for debug
-
-/* disabled in v3.5.2
-struct Log {
-  template <typename T>
-  Log & operator<<(const T &) {return *this;}
-} clog;
-#define endl 0
-*/
-
 struct WorkingData {
-  int num;
-  BYTE * noise;
-  BYTE * motion;
-  Segment * segments;
+  int num = -1;
+  BYTE * noise = nullptr;
+  BYTE * motion = nullptr;
+  Segment * segments = nullptr;
   void init(size_t);
-  WorkingData() : num(-1), noise(0), motion(0), segments(0) {}
   ~WorkingData();
 };
 
 struct Frame {
-  int num;
-  WorkingData * data;
+  int num = -1;
+  WorkingData * data = nullptr;
   PVideoFrame frame;
-  const BYTE * y; // Y plane of frame
-  int pitch; // pitch of Y plane
-  BYTE * noise;
-  BYTE * motion;
+  const BYTE * y = nullptr; // Y plane of frame
+  int pitch = 0; // pitch of Y plane
+  BYTE * noise = nullptr;
+  BYTE * motion = 0;
   Segments segments;
-  Frame() : num(-1), data(0), frame(0), noise(0), motion(0) {}
-  ~Frame();
 };
 
 struct Buffer
@@ -82,7 +63,7 @@ struct Buffer
   PClip childclip;
   WorkingData data_cache[2];
   Frame frame_cache[4];
-  BYTE * motion; // summary motion - added in v.3.0
+  BYTE * motion; // summary motion
   int num_frames;
 
   Frame * get_frame(int n, IScriptEnvironment* env)
@@ -104,75 +85,36 @@ struct Buffer
      f->segments.data = f->data->segments;
      f->segments.clear();}
 
-  REGPARM void ready_frame(int n, Frame * f, IScriptEnvironment* env);  // change  f to n in v.1.1  for VC
-  REGPARM void ready_data(Frame * f);
-  REGPARM void free_frame(Frame * f);
-  REGPARM void free_data(WorkingData *d);
+  void ready_frame(int n, Frame * f, IScriptEnvironment* env);
+  void ready_data(Frame * f);
+  void free_frame(Frame * f);
+  void free_data(WorkingData *d);
 };
 
 
-
-
-
-// definition
 class Filter : public GenericVideoFilter {
-  // SimpleSample defines the name of your filter class.
-  // This name is only used internally, and does not affect the name of your filter or similar.
-  // This filter extends GenericVideoFilter, which incorporates basic functionality.
-  // All functions present in the filter must also be present here.
-
-	PClip extmask; // v3.5
+	PClip extmask;
 
 	Parms Params;
-	bool planarYUY2; // v3.6
+	bool planarYUY2;
 	Buffer buf;
 	FILE *	outfile_ptr;
 
-//	char debugbuf[96];
+	void find_segments(int fn, IScriptEnvironment* env);
+	void find_motion_prev_cur(int fn, IScriptEnvironment* env);
+	void find_motion_prev_next(int fn, IScriptEnvironment* env);
 
-
-//	REGPARM void find_noise(int fn, IScriptEnvironment* env);
-	REGPARM void find_segments(int fn, IScriptEnvironment* env); // added in v.3.0 in place of find_noise
-//	REGPARM void find_motion_simple(int fn, IScriptEnvironment* env);
-	REGPARM void find_motion_prev_cur(int fn, IScriptEnvironment* env); // renamed simple in v.3.0
-	REGPARM void find_motion_prev_next(int fn, IScriptEnvironment* env); // added in v.3.0
-
-	void	print_segments (int fn, IScriptEnvironment* env);
+	void print_segments (int fn, IScriptEnvironment* env);
 
 public:
-  // This defines that these functions are present in your class.
-  // These functions must be that same as those actually implemented.
-  // Since the functions are "public" they are accessible to other classes.
-  // Otherwise they can only be called from functions within the class itself.
-
 	Filter (PClip _child, PClip _extmask, Parms _Params, bool _planarYUY2, IScriptEnvironment* env); //v3.5
-  // This is the constructor. It does not return any value, and is always used,
-  //  when an instance of the class is created.
-  // Since there is no code in this, this is the definition.
-
   ~Filter();
-  // The is the destructor definition. This is called when the filter is destroyed.
-
-
 	PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);
-  // This is the function that AviSynth calls to get a given frame.
-  // So when this functions gets called, the filter is supposed to return frame n.
 };
 
 
-
-
-//Here is the acutal constructor code used
-//Filter::Filter(PClip _child, PClip _WindowVideo, int _SquareSize,  IScriptEnvironment* env) :
-//	GenericVideoFilter(_child), WindowVideo(_WindowVideo), SquareSize(_SquareSize){
 Filter::Filter(PClip _child, PClip _extmask, Parms _Params, bool _planarYUY2, IScriptEnvironment* env) :
-GenericVideoFilter(_child), extmask(_extmask), Params(_Params), outfile_ptr (0) { //v3.5
-
-  // This is the implementation of the constructor.
-  // The child clip (source clip) is inherited by the GenericVideoFilter,
-  //  where the following variables gets defined:
-  //   PClip child;   // Contains the source clip.
-  //   VideoInfo vi;  // Contains videoinfo on the source clip.
+GenericVideoFilter(_child), extmask(_extmask), Params(_Params), outfile_ptr (0) {
 
     planarYUY2 = _planarYUY2;
 
@@ -187,14 +129,12 @@ GenericVideoFilter(_child), extmask(_extmask), Params(_Params), outfile_ptr (0) 
 	Params.height = vi.height;
 	Params.width  = vi.width;
 	Params.pitch = ((vi.width+7)/8)*8; // v.3.2
-//	if (Params.width % 8 != 0) env->ThrowError("DeSpot: Video Width Must be a multiple of 8"); // only for SSE -  disabled
-	if (!(env->GetCPUFlags() & CPUF_INTEGER_SSE) ) env->ThrowError("DeSpot: CPU must have Integer SSE support!"); // v.3.2
+	if (!(env->GetCPUFlags() & CPUF_INTEGER_SSE) ) env->ThrowError("DeSpot: CPU must have Integer SSE support!"); // fixme, is SSE actually used anywhere? I don't think so
 	Params.size   = Params.height * Params.pitch; // v.3.2
 
 	buf.data_cache[0].init(Params.size);
 	buf.data_cache[1].init(Params.size);
-//	buf.motion = new BYTE[Params.size]; // added in v.3.0
-	buf.motion =  (BYTE *)malloc(Params.size); // v.3.0,  changed in v.3.2
+	buf.motion =  (BYTE *)malloc(Params.size);
 //	_child->SetCacheHints(CACHE_RANGE,3); // added in v.3.3.2, changed from 2 to 3 in v3.5
 
 	if (! Params.outfilename.empty ())
@@ -233,13 +173,8 @@ GenericVideoFilter(_child), extmask(_extmask), Params(_Params), outfile_ptr (0) 
 	}
 }
 
-// This is where any actual destructor code used goes
 Filter::~Filter() {
-  // This is where you can deallocate any memory you might have used.
-	// Probably we must free data cache here.
-//	buf.data_cache[0].~WorkingData(); // disable in v3.5.2
-//	buf.data_cache[1].~WorkingData();
-	free(buf.motion); // added in v.3.0, changed in v.3.2
+	free(buf.motion);
 	if (outfile_ptr != 0)
 	{
 		fclose (outfile_ptr);
@@ -247,35 +182,11 @@ Filter::~Filter() {
 	}
 }
 
-
-
-
-
-
-
-
 /////////////////////////////////////////////////////////////////////
 //
 // Filter
 //
 
-/*
-void Filter::find_noise(int fn, IScriptEnvironment* env )
-{
-  clog << "Find Noise: " << fn << endl;
-  Frame * p = buf.get_frame(fn-1, env);
-  Frame * c = buf.get_frame(fn, env);
-  buf.alloc_noise(c);
-  buf.alloc_segments(c);
-  Frame * n = buf.get_frame(fn+1, env);
-  if (p && n) {
-    ::find_outliers(p->y, c->y, n->y, c->noise, Params);
-    ::find_sizes(c->noise, c->segments, Params);
-	noise_dilate(c->noise, Params); // added in v.1.3
-  }
-  ::mark_noise(c->segments, c->noise, Params);
-}
-*/
 void Filter::find_segments(int fn, IScriptEnvironment* env ) // added in v.3.0
 {
 //  clog << "Find Segments: " << fn << endl;
@@ -303,17 +214,7 @@ void Filter::find_motion_prev_cur(int fn, IScriptEnvironment* env) // - changed 
    }
 
 }
-/*
-void Filter::find_motion_simple(int fn, IScriptEnvironment* env)
-{
-  clog << "Find Motion Simple: " << fn << endl;
-  Frame * p = buf.get_frame(fn-1, env);
-  Frame * c = buf.get_frame(fn, env);
-  buf.alloc_motion(c);
-  ::find_motion(p->y, c->y, c->motion, Params);
-//  ::motion_denoise(c->motion, Params);
-}
-*/
+
 void Filter::find_motion_prev_next(int fn, IScriptEnvironment* env) // added in 2.1
 {
 //  clog << "Find Motion p-n: " << fn << endl;
@@ -341,8 +242,6 @@ void	Filter::print_segments (int fn, IScriptEnvironment* env)
 	  ::print_segments (segs, outfile_ptr, fnd, fps, w, h, Params.spotmax1, Params.spotmax2);
   }
 }
-
-
 
 Exec * exec_median[3] = { cond_median, map_outliers, map_outliers    };
 Exec * exec_pixel[3] = { remove_outliers, mark_outliers, map_outliers };
@@ -409,16 +308,12 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment* env )
 			}
 			else if (Params.show == 1)
 			{
-//				buf.motion = c->motion; // was memory leak! - disabled in v3.5.2 - 3.6.0
 				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
-//				mark_outliers(p->y, p->pitch, c->y,c->pitch,  c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
 				mark_outliers(p->y, p->pitch, c->y,c->pitch,  c->noise, c->motion, n->y, n->pitch, fout_y, opitch, Params);
 			}
 			else
 			{ // =2
-//				buf.motion = c->motion;
 				remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);// added in v.3.0
-//				map_outliers(p->y, p->pitch,c->y, c->pitch,c->noise, buf.motion, n->y, n->pitch,fout_y, opitch,Params);
 				map_outliers(p->y, p->pitch,c->y, c->pitch,c->noise, c->motion, n->y, n->pitch,fout_y, opitch,Params);
 			}
 
@@ -448,8 +343,7 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment* env )
 				mark_noise(c->segments, c->noise, Params);
 				noise_dilate(c->noise, Params); // added in v.1.3
 			}
-//			buf.motion = c->motion;
-//			(*exec_pixel[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
+
 			(*exec_pixel[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, c->motion, n->y, n->pitch, fout_y, opitch, Params);
 		}
 		else if (Params.seg != 0)
@@ -708,8 +602,6 @@ AVSValue __cdecl Create_Despot(AVSValue args, void* user_data, IScriptEnvironmen
 	SET_INT(mthres,0,255);
 	SET_INT(mwidth,0,32000);
 	SET_INT(mheight,0,32000);
-//	SET_INT(mratio,1,10); // added in v.2.1 and removed in 3.0
-//	p.merode = 100/p.mratio; // default, added in v.2.1
 	SET_INT(merode,0,100); // mp is changed to merode - relative percent of (MWidth+1)*(MHeight+1) in v.2.0
 	i++;
 	if (args[i].Defined() ) p.y_next =	 args[i].AsBool(false) ? 2 : 1;  //interlaced
@@ -770,35 +662,12 @@ extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit3(IScri
 {
   AVS_linkage = vectors;
   env->AddFunction("DeSpot", common_parms denoise_parms, Create_Despot,0);
-    // The AddFunction has the following paramters:
-    // AddFunction(Filtername , Arguments, Function to call,0);
-
-    // Arguments is a string that defines the types and optional names of the arguments for you filter.
-    // c - Video Clip
-    // i - Integer number
-    // f - Float number
-    // s - String
-    // b - boolean
-
-
-    return "`DeSpot' DeSpot plugin";
-    // A freeform name of the plugin.
+  return "DeSpot plugin";
 }
-
-
 
 /////////////////////////////////////////////////////////////////////
 //
 // Frame
-//
-
-Frame::~Frame()
-{
-//  if (frame) avs_release_video_frame(frame);
-}
-
-//
-// WorkingData
 //
 
 void WorkingData::init(size_t s)
@@ -815,11 +684,6 @@ WorkingData::~WorkingData()
   if (segments) free(segments);
 }
 
-//
-// Buffer
-//
-
-//void Buffer::ready_frame(int n, Frame * f)
 void Buffer::ready_frame(int n, Frame * f, IScriptEnvironment* env)
 {
   free_frame(f);
@@ -841,8 +705,6 @@ void Buffer::ready_data(Frame * f)
 void Buffer::free_frame(Frame * f)
 {
   if (f->data) free_data(f->data);
-//  clog << "Freeing Frame: " << f->num << "\n";
-//  if (f->frame) avs_release_video_frame(f->frame);
   f->num = -1;
   f->frame = 0;
   f->y = 0;

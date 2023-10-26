@@ -15,50 +15,8 @@ Copyright (C) 2003 Kevin Atkinson (kevin.med@atkinson.dhs.org) under the GNU GPL
 http://kevin.atkinson.dhs.org/temporal_median/
 
 */
-#include	<string>
-//#include "windows.h"
-typedef unsigned char BYTE; // change all byte to BYTE  in v.1.2
-
-// added in v.3.2 for profiling
-#ifndef max
-#define max(a,b)            (((a) > (b)) ? (a) : (b))
-#endif
-
-#ifndef min
-#define min(a,b)            (((a) < (b)) ? (a) : (b))
-#endif
-
-// redefine to enable SSE min max
-//#undef min
-//#undef max
-
-//static inline int min(int x, int y) {return x < y ? x : y;}
-//static inline int max(int x, int y) {return x > y ? x : y;}
-//static inline BYTE min(BYTE x, BYTE y) {return x < y ? x : y;}
-//static inline BYTE max(BYTE x, BYTE y) {return x > y ? x : y;}
-
-
-//#define REGPARM __attribute__ (( regparm(3) ))  // made fictive in v.1.1  for compatibility with VC:
-#define REGPARM
-
-//#include <stddef.h>
-
-/*  removed in 3.2
-struct MutableRow {
-  BYTE * data;
-  int pitch;
-  MutableRow() : data(0) {}
-  MutableRow(BYTE * d, int p) : data(d), pitch(p) {}
-};
-
-struct ConstRow {
-  const BYTE * data;
-  int pitch;
-  ConstRow() : data(0) {}
-  ConstRow(MutableRow o) : data(o.data), pitch(o.pitch) {}
-  ConstRow(BYTE * d, int p) : data(d), pitch(p) {}
-};
-*/
+#include <string>
+#include <avs/types.h>
 
 #define M_SEARCH 0
 #define M_MEDIAN 4
@@ -124,7 +82,6 @@ struct Segments {
   Segment * data;
   Segment * end;
   Segments() : data(0), end(0) {}
-  REGPARM void setup(size_t);
   void clear() {end = data;}
 };
 
@@ -136,29 +93,27 @@ typedef void Exec(const BYTE * p, int Ppitch,
 				  const Parms &);// BYTE * n_motion, - remove parameter in v.3.0
 
 
-extern "C" {
-  REGPARM void find_sizes(BYTE * noise, Segments & segs, const Parms &); // change parameters order in v.3.0
+ 
+void find_sizes(BYTE * noise, Segments & segs, const Parms &); // change parameters order in v.3.0
 
-  REGPARM void mark_noise(Segments & segs, BYTE * noise, const Parms &);
+void mark_noise(Segments & segs, BYTE * noise, const Parms &);
 
-  REGPARM void memzero(void *, size_t s);
+void find_motion(const BYTE * p,  int Ppitch, const BYTE * c, int Cpitch,
+                BYTE * motion, const Parms &);
+Exec cond_median;
 
-  void find_motion(const BYTE * p,  int Ppitch, const BYTE * c, int Cpitch,
-                   BYTE * motion, const Parms &);
-  Exec cond_median;
+void motion_denoise(BYTE * moving, const Parms &); // 3.22
 
-  void motion_denoise(BYTE * moving, const Parms &); // 3.22
+void find_outliers(const BYTE * p,  int Ppitch, const BYTE * c, int Cpitch,
+	const BYTE * n, int Npitch,  BYTE * c_noise, const Parms &);
 
-  void find_outliers(const BYTE * p,  int Ppitch, const BYTE * c, int Cpitch,
-	  const BYTE * n, int Npitch,  BYTE * c_noise, const Parms &);
+void mark_motion(const BYTE * p, int Ppitch, BYTE * p_noise,
+                const BYTE * c, int Cpitch, BYTE * c_noise, BYTE * c_motion,
+                const Parms &);
 
-  void mark_motion(const BYTE * p, int Ppitch, BYTE * p_noise,
-                   const BYTE * c, int Cpitch, BYTE * c_noise, BYTE * c_motion,
-                   const Parms &);
-
-  Exec remove_outliers;
-  Exec mark_outliers;
-  Exec map_outliers;
+Exec remove_outliers;
+Exec mark_outliers;
+Exec map_outliers;
 
 void noise_dilate(BYTE * noise, const Parms &); // added in v.1.3
 void reject_on_motion(Segments & segs, BYTE * motion, const Parms & p); // added in v.3.0
@@ -171,8 +126,3 @@ void mark_color_plane(BYTE * c_noise,	BYTE * oV, int opitchV, int widthUV, int h
 void motion_scene(BYTE * motion, const Parms & parms); // added in v.3.3
 void add_external_mask(const BYTE * ext, int ext_pitch, BYTE * motion, int pitch, int width, int height); // added in v.3.5
 void print_segments (const Segments & segs, FILE *f_ptr, int fn, double frate, int w, int h, int spotmax1, int spotmax2);
-
-}
-
-
-
