@@ -534,19 +534,17 @@ void cond_median(const BYTE *p, int Ppitch,
     const BYTE *n, int Npitch,
     BYTE *VS_RESTRICT o, int Opitch,
     const Parms &parms) {
-        {
-            int width = parms.pitch;
-            for (int y = 0; y != parms.height; ++y) {
-                median_line(p, n, c, c_motion, o, width);
+    int width = parms.pitch;
+    for (int y = 0; y != parms.height; ++y) {
+        median_line(p, n, c, c_motion, o, width);
 
-                p += Ppitch;
-                c += Cpitch;
-                n += Npitch;
-                o += Opitch;
-                c_noise += parms.pitch;
-                c_motion += parms.pitch;
-            }
-        }
+        p += Ppitch;
+        c += Cpitch;
+        n += Npitch;
+        o += Opitch;
+        c_noise += parms.pitch;
+        c_motion += parms.pitch;
+    }
 }
 
 static void getminmax(const unsigned char *p, const unsigned char *n,
@@ -589,7 +587,6 @@ static void find_sdi_m1(const unsigned char *p, const unsigned char *n, const un
         if (c[x] > maxpn)
             o[x] = c[x] - maxpn;
     }
-
 }
 
 
@@ -604,7 +601,6 @@ static void find_sdi_0(const unsigned char *p, const unsigned char *n, const uns
         else if (c[x] > maxpn)
             o[x] = c[x] - maxpn;
     }
-
 }
 
 //
@@ -929,11 +925,9 @@ static void lineblur(const BYTE *c_noise, const BYTE *c_motion, BYTE *VS_RESTRIC
             }
         }
     }
-
 }
 
 static void tsmooth_line(const BYTE *p, const BYTE *n, BYTE *VS_RESTRICT o, const BYTE *c_noise, const BYTE *c_motion, int width, int tsmoothLimit) {
-
     for (int x = 0; x != width; ++x) {
         if (!c_noise[x] && !c_motion[x]) {
             // temporal smoothing of almost static pixels (no noise(spots), no motion).
@@ -955,59 +949,56 @@ void remove_outliers(const BYTE *p, int Ppitch,
     const BYTE *n, int Npitch,
     BYTE *VS_RESTRICT o, int Opitch,
     const Parms &parms) {
+    int width = parms.width;
+    int tsmooth = parms.tsmooth;
+
+    for (int y = 0; y != parms.height; ++y) {
+
+        if (parms.fitluma) {
+            int lumac = 0;
+            int lumad = 0;
+            for (int x = 0; x != width; ++x) {
+                lumac += c[x];               //  prepare line lumas
+                lumad += p[x] + n[x];
+            }
+            lumac /= width;
+            lumad /= (width * 2);
+            lumad = lumac - lumad;      //  luma delta
+
+            for (int x = 0; x != width; ++x) {
+                if (c_noise[x] && !c_motion[x]) {
+                    // luma correction  of deleted spot place
+                    int ox = ((p[x] + n[x]) >> 1) + lumad;
+                    o[x] = std::min(std::max(ox, 0), 255);
+                } else
+                    o[x] = c[x];
+            }
+        } else // no fitluma
         {
-            int width = parms.width;
-            int tsmooth = parms.tsmooth;
-
-            for (int y = 0; y != parms.height; ++y) {
-
-                if (parms.fitluma) {
-                    int lumac = 0;
-                    int lumad = 0;
-                    for (int x = 0; x != width; ++x) {
-                        lumac += c[x];               //  prepare line lumas
-                        lumad += p[x] + n[x];
-                    }
-                    lumac /= width;
-                    lumad /= (width * 2);
-                    lumad = lumac - lumad;      //  luma delta
-
-                    for (int x = 0; x != width; ++x) {
-                        if (c_noise[x] && !c_motion[x]) {
-                            // luma correction  of deleted spot place
-                            int ox = ((p[x] + n[x]) >> 1) + lumad;
-                            o[x] = std::min(std::max(ox, 0), 255);
-                        } else
-                            o[x] = c[x];
-                    }
-                } else // no fitluma
-                {
-                    for (int x = 0; x != width; ++x) {
-                        if (c_noise[x] && !c_motion[x]) {
-                            o[x] = (p[x] + n[x]) >> 1;
-                        } else
-                            o[x] = c[x];
-                    }
-
-                }
-
-                // blur line near spot segments
-                if (parms.blur) lineblur(c_noise, c_motion, o, width, parms);
-
-                if (parms.tsmooth) { // temporal smoothing
-                    // must be after segments blur!
-                    tsmooth_line(p, n, o, c_noise, c_motion, width, tsmooth);
-                }
-
-                p += Ppitch;
-                c += Cpitch;
-                n += Npitch;
-                o += Opitch;
-                c_noise += parms.pitch;
-                c_motion += parms.pitch;
+            for (int x = 0; x != width; ++x) {
+                if (c_noise[x] && !c_motion[x]) {
+                    o[x] = (p[x] + n[x]) >> 1;
+                } else
+                    o[x] = c[x];
             }
 
         }
+
+        // blur line near spot segments
+        if (parms.blur) lineblur(c_noise, c_motion, o, width, parms);
+
+        if (parms.tsmooth) { // temporal smoothing
+            // must be after segments blur!
+            tsmooth_line(p, n, o, c_noise, c_motion, width, tsmooth);
+        }
+
+        p += Ppitch;
+        c += Cpitch;
+        n += Npitch;
+        o += Opitch;
+        c_noise += parms.pitch;
+        c_motion += parms.pitch;
+    }
 }
 
 void mark_outliers(const BYTE *p, int Ppitch,
@@ -1105,9 +1096,7 @@ void motion_merge(BYTE *VS_RESTRICT c_motion, BYTE *VS_RESTRICT n_motion, BYTE *
     }
 }
 
-
 //    1D  line triangle blur near deleted spot segments.
-
 static void segment_blur(BYTE *VS_RESTRICT o, int x1, int x2, int blur, BYTE *VS_RESTRICT b) {
     //    int blur = parms.blur; // 1d blur radius
     //    b must be BYTE buffer with size >=16
@@ -1214,34 +1203,31 @@ static void segment_blur(BYTE *VS_RESTRICT o, int x1, int x2, int blur, BYTE *VS
 
 void temporal_smooth(Segments &segs, const BYTE *p, int Ppitch, const BYTE *n, int Npitch,
     BYTE *VS_RESTRICT o, int Opitch, BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT c_motion, const Parms &parms) {
-        {
-            int width = parms.width;
-            int sigmann2 = (parms.tsmooth) * (parms.tsmooth); // approximate value of noise variance for Wiener temporal smoothing
-            int tsmooth = parms.tsmooth;
+    int width = parms.width;
+    int sigmann2 = (parms.tsmooth) * (parms.tsmooth); // approximate value of noise variance for Wiener temporal smoothing
+    int tsmooth = parms.tsmooth;
 
-            Segment *seg = segs.data;
-            segs.end->ly = parms.height; // to avoid having to check for < segs.end
+    Segment *seg = segs.data;
+    segs.end->ly = parms.height; // to avoid having to check for < segs.end
 
-            for (int y = 0; y < parms.height; ++y) {
-                for (; seg->ly == y; ++seg) {
+    for (int y = 0; y < parms.height; ++y) {
+        for (; seg->ly == y; ++seg) {
 
-                    int x1 = std::max<int>(seg->lx1, 0);
-                    int x2 = std::min<int>(seg->lx2, width - 1);
-                    for (int x = x1; x <= x2; ++x) {
-                        c_noise[x] = 255;
-                    }
-                }
-
-                tsmooth_line(p, n, o, c_noise, c_motion, width, tsmooth);
-
-                p += Ppitch;
-                n += Npitch;
-                o += Opitch;
-                c_noise += parms.pitch;
-                c_motion += parms.pitch;
+            int x1 = std::max<int>(seg->lx1, 0);
+            int x2 = std::min<int>(seg->lx2, width - 1);
+            for (int x = x1; x <= x2; ++x) {
+                c_noise[x] = 255;
             }
-
         }
+
+        tsmooth_line(p, n, o, c_noise, c_motion, width, tsmooth);
+
+        p += Ppitch;
+        n += Npitch;
+        o += Opitch;
+        c_noise += parms.pitch;
+        c_motion += parms.pitch;
+    }
 }
 
 void remove_segments(Segments &segs, const BYTE *p, int Ppitch, const BYTE *c, int Cpitch,
@@ -1378,8 +1364,7 @@ void remove_segments(Segments &segs, const BYTE *p, int Ppitch, const BYTE *c, i
 //
 // set color at places of deleted spot to mean value
 //
-void clean_color_plane(const BYTE *p, int ppitch, const BYTE *c, int cpitch, const BYTE *n, int npitch, int widthUV, int heightUV, BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT o, int opitch, Parms &Params)
-{
+void clean_color_plane(const BYTE *p, int ppitch, const BYTE *c, int cpitch, const BYTE *n, int npitch, int widthUV, int heightUV, BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT o, int opitch, Parms &Params) {
     int mult = (1 << 10) / 3;
     int y_next = Params.y_next;
 
@@ -1402,8 +1387,7 @@ void clean_color_plane(const BYTE *p, int ppitch, const BYTE *c, int cpitch, con
             c_noise += Params.pitch * (1 + (y_next % 2) + 2 * (j % y_next));
 
         }
-    } else if (heightUV == Params.height && widthUV == Params.width / 2) // YV16
-    {
+    } else if (heightUV == Params.height && widthUV == Params.width / 2) { // YV16
         for (int j = 0; j < heightUV; j++) {
             for (int i = 0; i < widthUV; i++) {
                 // check 2 points of luma noise
@@ -1420,8 +1404,7 @@ void clean_color_plane(const BYTE *p, int ppitch, const BYTE *c, int cpitch, con
             c_noise += Params.pitch;
 
         }
-    } else if (heightUV == Params.height && widthUV == Params.width) // YV24
-    {
+    } else if (heightUV == Params.height && widthUV == Params.width) { // YV24
         for (int j = 0; j < heightUV; j++) {
             for (int i = 0; i < widthUV; i++) {
                 // check 2 points of luma noise
@@ -1436,7 +1419,6 @@ void clean_color_plane(const BYTE *p, int ppitch, const BYTE *c, int cpitch, con
             n += npitch;
             o += opitch;
             c_noise += Params.pitch;
-
         }
     }
 }
@@ -1466,8 +1448,7 @@ void mark_color_plane(BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT ptrV, int pit
             ptrV += pitchV;
             c_noise += Params.pitch * (1 + (y_next % 2) + 2 * (j % y_next));
         }
-    } else if (heightUV == Params.height && widthUV == Params.width / 2) // YV16
-    {
+    } else if (heightUV == Params.height && widthUV == Params.width / 2) { // YV16
         for (int j = 0; j < heightUV; j++) {
             for (int i = 0; i < widthUV; i++) {
                 // check 2 points of luma noise
@@ -1479,8 +1460,7 @@ void mark_color_plane(BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT ptrV, int pit
             ptrV += pitchV;
             c_noise += Params.pitch;
         }
-    } else if (heightUV == Params.height && widthUV == Params.width) // YV24
-    {
+    } else if (heightUV == Params.height && widthUV == Params.width) { // YV24
         for (int j = 0; j < heightUV; j++) {
             for (int i = 0; i < widthUV; i++) {
                 // check 2 points of luma noise
