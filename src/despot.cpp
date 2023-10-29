@@ -64,7 +64,7 @@ struct Buffer {
     PClip childclip;
     WorkingData data_cache[2];
     Frame frame_cache[fcache_size];
-    BYTE *motion; // summary motion
+    std::unique_ptr<BYTE[]> motion; // summary motion
     int num_frames;
 
     Frame *get_frame(int n, IScriptEnvironment *env) {
@@ -136,7 +136,7 @@ Filter::Filter(PClip _child, PClip _extmask, Parms _Params, IScriptEnvironment *
 
     buf.data_cache[0].init(Params.size);
     buf.data_cache[1].init(Params.size);
-    buf.motion = (BYTE *)malloc(Params.size);
+    buf.motion = std::make_unique<BYTE[]>(Params.size);
 
     if (!Params.outfilename.empty()) {
         const double diag = sqrt(double(vi.width) * vi.width + double(vi.height) * vi.height);
@@ -252,8 +252,8 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment *env) {
                 find_motion_prev_cur(c, n);
                 motion_denoise(n->motion, Params);
             }
-            motion_merge(c->motion, n->motion, buf.motion, Params);
-            (*exec_median[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
+            motion_merge(c->motion, n->motion, buf.motion.get(), Params);
+            (*exec_median[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion.get(), n->y, n->pitch, fout_y, opitch, Params);
         } else if (Params.motpn && Params.seg != 0) { // motion prev-next,  segments mode
             // new mode - find motion prev to next
             if (!c->motion) {
@@ -336,22 +336,22 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment *env) {
                 motion_denoise(n->motion, Params);
                 motion_scene(n->motion, Params);
             }
-            motion_merge(c->motion, n->motion, buf.motion, Params);
+            motion_merge(c->motion, n->motion, buf.motion.get(), Params);
             if (extmask) {
                 PVideoFrame fextmask = extmask->GetFrame(fn, env);
-                add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), buf.motion, Params.pitch, Params.width, Params.height);
+                add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), buf.motion.get(), Params.pitch, Params.width, Params.height);
             }
-            reject_on_motion(c->segments, buf.motion, Params);
+            reject_on_motion(c->segments, buf.motion.get(), Params);
             if (Params.show == 0) {
                 vsh::bitblt(fout_y, opitch, c->y, c->pitch, Params.width, Params.height); // copy as base
                 remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
                 if (Params.tsmooth > 0) temporal_smooth(c->segments, p->y, p->pitch, n->y, n->pitch, fout_y, opitch, c->noise, c->motion, Params);
             } else if (Params.show == 1) {
                 remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
-                mark_outliers(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
+                mark_outliers(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion.get(), n->y, n->pitch, fout_y, opitch, Params);
             } else { // =2
                 remove_segments(c->segments, p->y, p->pitch, c->y, c->pitch, n->y, n->pitch, fout_y, opitch, c->noise, Params);
-                map_outliers(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
+                map_outliers(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion.get(), n->y, n->pitch, fout_y, opitch, Params);
             }
         } else if (Params.seg == 0) { // motion prev-cur and cur-next, no segments
             if (!c->motion) {
@@ -388,12 +388,12 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment *env) {
                 motion_denoise(n->motion, Params);
                 motion_scene(n->motion, Params);
             }
-            motion_merge(c->motion, n->motion, buf.motion, Params);
+            motion_merge(c->motion, n->motion, buf.motion.get(), Params);
             if (extmask) {
                 PVideoFrame fextmask = extmask->GetFrame(fn, env);
-                add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), buf.motion, Params.pitch, Params.width, Params.height);
+                add_external_mask(fextmask->GetReadPtr(), fextmask->GetPitch(), buf.motion.get(), Params.pitch, Params.width, Params.height);
             }
-            (*exec_pixel[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion, n->y, n->pitch, fout_y, opitch, Params);
+            (*exec_pixel[Params.show])(p->y, p->pitch, c->y, c->pitch, c->noise, buf.motion.get(), n->y, n->pitch, fout_y, opitch, Params);
         }
 
         // now process color planes
