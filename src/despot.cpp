@@ -109,7 +109,7 @@ class Filter : public GenericVideoFilter {
     void find_motion_prev_cur(Frame *p, Frame *c);
     void find_motion_prev_next(Frame *p, Frame *c, Frame *n);
 
-    void print_segments(int fn, IScriptEnvironment *env);
+    void print_segments(int fn, Frame *c);
 
 public:
     Filter(PClip _child, PClip _extmask, Parms _Params, IScriptEnvironment *env);
@@ -138,7 +138,9 @@ Filter::Filter(PClip _child, PClip _extmask, Parms _Params, IScriptEnvironment *
     if (!Params.outfilename.empty()) {
         const double diag = sqrt(double(vi.width) * vi.width + double(vi.height) * vi.height);
         const int    thickness = int(floor(diag / 860 + 0.75));
-        outfile_ptr = fopen(Params.outfilename.c_str(), "w");
+        outfile_ptr = fopen(Params.outfilename.c_str(), "wb");
+        if (!outfile_ptr)
+            env->ThrowError("DeSpot: failed to open %s for writing", Params.outfilename.c_str());
         fprintf(outfile_ptr,
             "[Script Info]\n"
             "Title: DeSpot automatically generated file\n"
@@ -172,9 +174,9 @@ Filter::Filter(PClip _child, PClip _extmask, Parms _Params, IScriptEnvironment *
 
 Filter::~Filter() {
     free(buf.motion);
-    if (outfile_ptr != 0) {
+    if (outfile_ptr) {
         fclose(outfile_ptr);
-        outfile_ptr = 0;
+        outfile_ptr = nullptr;
     }
 }
 
@@ -205,11 +207,12 @@ void Filter::find_motion_prev_next(Frame *p, Frame *c, Frame *n) {
     ::find_motion(p->y, p->pitch, n->y, n->pitch, c->motion, Params);
 }
 
-void	Filter::print_segments(int fn, IScriptEnvironment *env) {
+void Filter::print_segments(int fn, Frame *c) {
+    // Only return every third (middle) frame in mc mode
+    // Obfuscate this a lot more in the original code 
     const int r = (Params.mc_flag) ? 3 : 1;
-    const int fnd = fn / r;
-    if (fn == fnd * r + ((r - 1) >> 1)) {
-        Frame *c = buf.get_frame(fn, env); // fixme, what is this?
+    const int fnd = (fn / r) * r + (r - 1) / 2;
+    if (fn == fnd) {
         const Segments &segs = c->segments;
 
         const int w = c->frame->GetRowSize();
@@ -278,9 +281,8 @@ PVideoFrame __stdcall Filter::GetFrame(int fn, IScriptEnvironment *env) {
                 map_outliers(p->y, p->pitch, c->y, c->pitch, c->noise, c->motion, n->y, n->pitch, fout_y, opitch, Params);
             }
 
-            if (outfile_ptr != 0) {
-                print_segments(fn, env);
-            }
+            if (outfile_ptr)
+                print_segments(fn, c);
         } else if (Params.motpn && Params.seg == 0) { // motion prev-next, no segments mode
             // new mode - find motion prev to next
             if (!c->motion) {
