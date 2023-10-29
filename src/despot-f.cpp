@@ -112,11 +112,11 @@ void combine_ys(Segments &segs, const Parms &p) {
 
 
                     if (a != b) {
-                        a->nump1 += b->nump1;  // Added in v 1.2  - but i am not shure, that no dublicate pixels
-                        a->nump2 += b->nump2;  // Added in v 1.2  - but i am not shure, that no dublicate pixels
-                        a->sumnoise += b->sumnoise;  // Added in v 1.2
-                        a->what = a->what | B_MASTER; // now a is master - add in v.3.0
-                        b->what = b->what | B_LINK; // now b is link
+                        a->nump1 += b->nump1;
+                        a->nump2 += b->nump2;
+                        a->sumnoise += b->sumnoise;
+                        a->what = a->what | B_MASTER;
+                        b->what = b->what | B_LINK;
                         b->data.nowis = a; // "b" now is included in "a" as LINK
                     }
                 }
@@ -308,7 +308,7 @@ static void find_mot_line(const BYTE *p, const BYTE *c, BYTE *VS_RESTRICT motion
     for (int x = 0; x < width; ++x) {
         if (abs(p[x] - c[x]) > mthres)
             motion[x] = 3; //  motion without noise
-        else                           
+        else
             motion[x] = 0; // 0 is no motion
     }
 }
@@ -316,18 +316,15 @@ static void find_mot_line(const BYTE *p, const BYTE *c, BYTE *VS_RESTRICT motion
 
 void find_motion(const BYTE *p, int Ppitch, const BYTE *c, int Cpitch, BYTE *VS_RESTRICT motion,
     const Parms &parms) {
-        {
-            int width = parms.pitch;
-            int mthres = parms.mthres; //3.2
-            for (int y = 0; y != parms.height; ++y) {
-                find_mot_line(p, c, motion, width, mthres);
+    int width = parms.pitch;
+    int mthres = parms.mthres;
+    for (int y = 0; y != parms.height; ++y) {
+        find_mot_line(p, c, motion, width, mthres);
 
-                p += Ppitch;
-                c += Cpitch;
-                motion += parms.pitch;
-            }
-
-        }
+        p += Ppitch;
+        c += Cpitch;
+        motion += parms.pitch;
+    }
 }
 
 static void motion_summation(const BYTE *moving, signed char *VS_RESTRICT r, int w, int h, int y1, int y2) {
@@ -413,9 +410,9 @@ void motion_denoise(BYTE *VS_RESTRICT moving, const Parms &p) {
         // and total number of its neighbors at region MWidth+1 x MHeight+1 > MP
         // may be noise pixel also give some addition (not 3 but 1)
     } else { // no erode (faster)
-        // we do not use erode, but we must initialize  fmoving,
+        // we do not use erode, but we must initialize fmoving,
           //simply from  motion array data, but of 1 and 0 (not 3 and 0)
-          // code added instead of erode in v 2.0 :
+          // code added instead of erode
         for (int y = 0; y < h; y++) {
             BYTE *r2 = moving + w * y; // lines
             BYTE *fw = fmoving + w * y;
@@ -483,7 +480,7 @@ void noise_dilate(BYTE *VS_RESTRICT moving, const Parms &p) {
 
     // we do not use erode, but we must initialize  fmoving,
       //simply from  noise array data, but of 1 and 0 (not 255 and 0)
-      // code added instead of erode in v 1.3 :
+      // code added instead of erode
     for (int y = 0; y < h; y++) {
         BYTE *r2 = moving + w * y; // lines
         BYTE *fw = fmoving + w * y;
@@ -616,210 +613,195 @@ static void find_sdi_0(const unsigned char *p, const unsigned char *n, const uns
 
 void find_outliers(const BYTE *p, int Ppitch, const BYTE *c, int Cpitch,
     const BYTE *n, int Npitch, BYTE *VS_RESTRICT o, const Parms &parms) {
-        {  // output o is min difference of cur from prev and next if they both less or both bigger
-           // Sign of spot may also be defined
-            int width = parms.width;
-            int height = parms.height;
-            int x;
-            BYTE mn, mx;
-            int wmod8 = parms.pitch; // mearest mod8 not less than width and not bigger than pitch
-            BYTE *minpn = new BYTE[wmod8 + 16]; // temporary array min(prev[x], next[x]),
-            BYTE *maxpn = new BYTE[wmod8 + 16]; // temporary array max(prev[x], next[x]),
+    // output o is min difference of cur from prev and next if they both less or both bigger
+     // Sign of spot may also be defined
+    int width = parms.width;
+    int height = parms.height;
+    BYTE mn, mx;
+    int wmod8 = parms.pitch; // mearest mod8 not less than width and not bigger than pitch
+    BYTE *minpn = new BYTE[wmod8 + 16]; // temporary array min(prev[x], next[x]),
+    BYTE *maxpn = new BYTE[wmod8 + 16]; // temporary array max(prev[x], next[x]),
 
-            int sign = parms.sign;
-            BYTE p1 = parms.p1;
+    int sign = parms.sign;
+    BYTE p1 = parms.p1;
 
-            memzero(o, parms.size);
+    memzero(o, parms.size);
 
-            for (int y = 0; y != parms.height; ++y) {
+    for (int y = 0; y != parms.height; ++y) {
 
-                if (parms.ranked) {
-
-
-                    // Simplified Ranked ordered difference detector (S-ROD) for stability to noise
-                    // Reference:Restoration and Storage of Film and Video Archive Material.
-                    // P.M.B. van Roosmalen, J. Biemond, and R.L. Lagendijk. 1998.
-                    // File from Internet: Nato Summer School 1998.pdf
-                    //
-                    // Ranked dif with 6 pixels: 3 in prev , 3 in next
-                    // My modification of article method:
-                    // I use pixels in same horizontal line, instead of in same vertical row
-                    // (better for interlaced or telecined video)
-
-        //		 I am do not disturb about 1 leftmost -  added in v.1.2
-        //		 and 1 rightmost pixels for every line -  added in v.1.2
-
-                        // Sign modes added in v.0.93a , some speed optimize in v. 3.0
-                        // Set some black-white mode of spots search, from sign parameter:
-                    switch (sign) {
-                    case 1://  sign=1 - only black (dark) spots and outliers
-
-                        getminmax(p, n, minpn, 0, wmod8);
-
-                        for (x = 1; x < width - 1; ++x) { // omit leftmost and rightmost rows
-                            // get extremums of coincident pixels in neighbors frames
-                            mn = std::min(minpn[x - 1], minpn[x]);
-                            mn = std::min(mn, minpn[x + 1]); // have min from 2+4=6 pixels
-
-                            if (mn > c[x])	o[x] = mn - c[x];
-                        }
-                        break;
-                    case -1://  sign=-1 - only white (light) spots and outliers
-
-                        getminmax(p, n, 0, maxpn, wmod8);
-
-                        for (x = 1; x < width - 1; ++x) { // omit leftmost and rightmost rows
-                            // get extremums of coincident pixels in neighbors frames
-
-                            mx = std::max(maxpn[x - 1], maxpn[x]);
-                            mx = std::max(mx, maxpn[x + 1]);// have max from 2+4=6 pixels
+        if (parms.ranked) {
 
 
-                            if (c[x] > mx)
-                                o[x] = c[x] - mx;
-                        }
-                        break;
-                    case 2://  sign=2 - only black (dark) spots, any outliers
-
-                        getminmax(p, n, minpn, maxpn, wmod8);
-
-                        for (x = 1; x < width - 1; ++x) { // omit leftmost and rightmost rows
-                            // get extremums of coincident pixels in neighbors frames
-
-                            mn = std::min(minpn[x - 1], minpn[x]);
-                            mn = std::min(mn, minpn[x + 1]); // have min from 2+4=6 pixels
-
-                            mx = std::max(maxpn[x - 1], maxpn[x]);
-                            mx = std::max(mx, maxpn[x + 1]);// have max from 2+4=6 pixels
-
-                            if (c[x] < mn)
-                                o[x] = mn - c[x];
-                            else if (c[x] > mx)
-                                o[x] = std::min<int>(c[x] - mx, p1);
-                        }
-                        break;
-                    case -2:	//  sign=-2 - only white (light) spots, any outliers
-
-                        getminmax(p, n, minpn, maxpn, wmod8);
-
-                        for (x = 1; x < width - 1; ++x) { // omit leftmost and rightmost rows
-                            // get extremums of coincident pixels in neighbors frames
-    //
-                            mn = std::min(minpn[x - 1], minpn[x]);
-                            mn = std::min(mn, minpn[x + 1]); // have min from 2+4=6 pixels
-
-                            mx = std::max(maxpn[x - 1], maxpn[x]);
-                            mx = std::max(mx, maxpn[x + 1]);// have max from 2+4=6 pixels
+            // Simplified Ranked ordered difference detector (S-ROD) for stability to noise
+            // Reference:Restoration and Storage of Film and Video Archive Material.
+            // P.M.B. van Roosmalen, J. Biemond, and R.L. Lagendijk. 1998.
+            // File from Internet: Nato Summer School 1998.pdf
+            //
+            // Ranked dif with 6 pixels: 3 in prev , 3 in next
+            // My modification of article method:
+            // I use pixels in same horizontal line, instead of in same vertical row
+            // (better for interlaced or telecined video)
 
 
-                            if (c[x] > mx)
-                                o[x] = c[x] - mx;
-                            else if (c[x] < mn)
-                                o[x] = std::min<int>(mn - c[x], p1); //3.2
-                        }
-                        break;
-                    case 0:
-                    default:  //  sign=0 - any spots and outliers (default)
-                        //  (as used in v. 0.93 code by Kevin Atkinson for all cases)
-                    // replaced to more fast method (with minmax array) in v.3.2
 
-                        getminmax(p, n, minpn, maxpn, wmod8);
+                // Set some black-white mode of spots search, from sign parameter:
+            switch (sign) {
+            case 1://  sign=1 - only black (dark) spots and outliers
 
-                        for (x = 1; x < width - 1; ++x)  // omit leftmost and rightmost rows
-                        {// get extremums of coincident pixels in neighbors frames
+                getminmax(p, n, minpn, 0, wmod8);
 
-                            mn = std::min(minpn[x - 1], minpn[x]);
-                            mn = std::min(mn, minpn[x + 1]); // have min from 2+4=6 pixels
+                for (int x = 1; x < width - 1; ++x) { // omit leftmost and rightmost rows
+                    // get extremums of coincident pixels in neighbors frames
+                    mn = std::min(minpn[x - 1], minpn[x]);
+                    mn = std::min(mn, minpn[x + 1]); // have min from 2+4=6 pixels
 
-                            mx = std::max(maxpn[x - 1], maxpn[x]);
-                            mx = std::max(mx, maxpn[x + 1]);// have max from 2+4=6 pixels
+                    if (mn > c[x])	o[x] = mn - c[x];
+                }
+                break;
+            case -1://  sign=-1 - only white (light) spots and outliers
 
-                            if (mn > c[x])	o[x] = mn - c[x];
-                            else {
-                                if (c[x] > mx)	o[x] = c[x] - mx;
-                            }
-                        }
+                getminmax(p, n, 0, maxpn, wmod8);
+
+                for (int x = 1; x < width - 1; ++x) { // omit leftmost and rightmost rows
+                    // get extremums of coincident pixels in neighbors frames
+
+                    mx = std::max(maxpn[x - 1], maxpn[x]);
+                    mx = std::max(mx, maxpn[x + 1]);// have max from 2+4=6 pixels
+
+
+                    if (c[x] > mx)
+                        o[x] = c[x] - mx;
+                }
+                break;
+            case 2://  sign=2 - only black (dark) spots, any outliers
+
+                getminmax(p, n, minpn, maxpn, wmod8);
+
+                for (int x = 1; x < width - 1; ++x) { // omit leftmost and rightmost rows
+                    // get extremums of coincident pixels in neighbors frames
+
+                    mn = std::min(minpn[x - 1], minpn[x]);
+                    mn = std::min(mn, minpn[x + 1]); // have min from 2+4=6 pixels
+
+                    mx = std::max(maxpn[x - 1], maxpn[x]);
+                    mx = std::max(mx, maxpn[x + 1]);// have max from 2+4=6 pixels
+
+                    if (c[x] < mn)
+                        o[x] = mn - c[x];
+                    else if (c[x] > mx)
+                        o[x] = std::min<int>(c[x] - mx, p1);
+                }
+                break;
+            case -2:	//  sign=-2 - only white (light) spots, any outliers
+
+                getminmax(p, n, minpn, maxpn, wmod8);
+
+                for (int x = 1; x < width - 1; ++x) { // omit leftmost and rightmost rows
+                    // get extremums of coincident pixels in neighbors frames
+//
+                    mn = std::min(minpn[x - 1], minpn[x]);
+                    mn = std::min(mn, minpn[x + 1]); // have min from 2+4=6 pixels
+
+                    mx = std::max(maxpn[x - 1], maxpn[x]);
+                    mx = std::max(mx, maxpn[x + 1]);// have max from 2+4=6 pixels
+
+
+                    if (c[x] > mx)
+                        o[x] = c[x] - mx;
+                    else if (c[x] < mn)
+                        o[x] = std::min<int>(mn - c[x], p1); //3.2
+                }
+                break;
+            case 0:
+            default:  //  sign=0 - any spots and outliers (default)
+                //  (as used in v. 0.93 code by Kevin Atkinson for all cases)
+            // replaced to more fast method (with minmax array) in v.3.2
+
+                getminmax(p, n, minpn, maxpn, wmod8);
+
+                for (int x = 1; x < width - 1; ++x)  // omit leftmost and rightmost rows
+                {// get extremums of coincident pixels in neighbors frames
+
+                    mn = std::min(minpn[x - 1], minpn[x]);
+                    mn = std::min(mn, minpn[x + 1]); // have min from 2+4=6 pixels
+
+                    mx = std::max(maxpn[x - 1], maxpn[x]);
+                    mx = std::max(mx, maxpn[x + 1]);// have max from 2+4=6 pixels
+
+                    if (mn > c[x])	o[x] = mn - c[x];
+                    else {
+                        if (c[x] > mx)	o[x] = c[x] - mx;
                     }
                 }
-
-                else { // old SDI method  by 2 pixels
-                    // Sign modes added in v.0.93a, some speed optimize in v. 3.0
-                    // Set some black-white mode of spots search, from sign parameter:
-                    switch (parms.sign) {
-                    case 1://  sign=1 - only black (dark) spots and outliers
-
-                        find_sdi_p1(p, n, c, o, wmod8);
-
-                        break;
-                    case -1://  sign=-1 - only white (light) spots and outliers
-
-                        find_sdi_m1(p, n, c, o, wmod8);
-                        break;
-                    case 2://  sign=2 - only black (dark) spots, any outliers
-
-                        getminmax(p, n, minpn, maxpn, wmod8);
-
-                        for (x = 0; x < width; ++x) {
-                            // get extremums of coincident pixels in neighbors frames
-                            if (c[x] < minpn[x])
-                                o[x] = minpn[x] - c[x];
-                            else if (c[x] > maxpn[x])
-                                o[x] = std::min<int>(c[x] - maxpn[x], p1);
-                        }
-                        break;
-                    case -2:	//  sign=-2 - only white (light) spots, any outliers
-
-                        getminmax(p, n, minpn, maxpn, wmod8);
-
-                        for (x = 0; x < width; ++x) {
-                            // get extremums of coincident pixels in neighbors frames
-                            if (c[x] > maxpn[x])
-                                o[x] = c[x] - maxpn[x];
-                            else if (c[x] < minpn[x])
-                                o[x] = std::min<int>(minpn[x] - c[x], p1);
-                        }
-                        break;
-                    case 0:
-                    default:  //  sign=0 - any spots and outliers (default)
-
-                        find_sdi_0(p, n, c, o, wmod8);
-                    }
-                }
-
-                p += Ppitch;
-                c += Cpitch;
-                n += Npitch;
-                o += parms.pitch;
             }
-
-            delete[] minpn;
-            delete[] maxpn;
-
         }
+
+        else { // old SDI method by 2 pixels
+            // Set some black-white mode of spots search, from sign parameter:
+            switch (parms.sign) {
+            case 1://  sign=1 - only black (dark) spots and outliers
+
+                find_sdi_p1(p, n, c, o, wmod8);
+
+                break;
+            case -1://  sign=-1 - only white (light) spots and outliers
+
+                find_sdi_m1(p, n, c, o, wmod8);
+                break;
+            case 2://  sign=2 - only black (dark) spots, any outliers
+
+                getminmax(p, n, minpn, maxpn, wmod8);
+
+                for (int x = 0; x < width; ++x) {
+                    // get extremums of coincident pixels in neighbors frames
+                    if (c[x] < minpn[x])
+                        o[x] = minpn[x] - c[x];
+                    else if (c[x] > maxpn[x])
+                        o[x] = std::min<int>(c[x] - maxpn[x], p1);
+                }
+                break;
+            case -2:	//  sign=-2 - only white (light) spots, any outliers
+
+                getminmax(p, n, minpn, maxpn, wmod8);
+
+                for (int x = 0; x < width; ++x) {
+                    // get extremums of coincident pixels in neighbors frames
+                    if (c[x] > maxpn[x])
+                        o[x] = c[x] - maxpn[x];
+                    else if (c[x] < minpn[x])
+                        o[x] = std::min<int>(minpn[x] - c[x], p1);
+                }
+                break;
+            case 0:
+            default:  //  sign=0 - any spots and outliers (default)
+
+                find_sdi_0(p, n, c, o, wmod8);
+            }
+        }
+
+        p += Ppitch;
+        c += Cpitch;
+        n += Npitch;
+        o += parms.pitch;
+    }
+
+    delete[] minpn;
+    delete[] maxpn;
 }
 
 // change motion mark to 1 if noise
-
 void noise_to_one(BYTE *VS_RESTRICT p_noise, BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT c_motion, const Parms &parms) {
-    {
-        int width = parms.width;
-        for (int y = 0; y != parms.height; ++y) {
-            for (int x = 0; x != width; ++x) {
-                if (c_motion[x] && (p_noise[x] || c_noise[x])) c_motion[x] = 1;
-                //  motion and  prev or current noise = 1, else no change
-            }
-            p_noise += parms.pitch;
-            c_noise += parms.pitch;
-            c_motion += parms.pitch;
+    int width = parms.width;
+    for (int y = 0; y != parms.height; ++y) {
+        for (int x = 0; x != width; ++x) {
+            if (c_motion[x] && (p_noise[x] || c_noise[x])) c_motion[x] = 1;
+            //  motion and  prev or current noise = 1, else no change
         }
-
+        p_noise += parms.pitch;
+        c_noise += parms.pitch;
+        c_motion += parms.pitch;
     }
 }
-
-
-//
-//    1D  line triangle blur near deleted spot segments.
-//
 
 static void lineblur(const BYTE *c_noise, const BYTE *c_motion, BYTE *VS_RESTRICT o, int width, const Parms &parms) {
     BYTE b[10];	           // buffer
@@ -1264,141 +1246,139 @@ void temporal_smooth(Segments &segs, const BYTE *p, int Ppitch, const BYTE *n, i
 
 void remove_segments(Segments &segs, const BYTE *p, int Ppitch, const BYTE *c, int Cpitch,
     const BYTE *n, int Npitch, BYTE *VS_RESTRICT o, int Opitch, BYTE *VS_RESTRICT c_noise, const Parms &parms) {
-        {
-            int width = parms.width;
-            int blur = parms.blur;
-            BYTE blurBuffer[16]; // buffer for blur
 
-            bool fitluma = parms.fitluma;
-            int lumaAdd;
-            int dilateX = abs(parms.dilate);
-            int dilateY = abs(parms.dilate / parms.y_next);
+    int width = parms.width;
+    int blur = parms.blur;
+    BYTE blurBuffer[16]; // buffer for blur
 
-            int dy;
-            Segment *seg = segs.data;
-            segs.end->ly = parms.height; // to avoid having to check for < segs.end
+    bool fitluma = parms.fitluma;
+    int lumaAdd;
+    int dilateX = abs(parms.dilate);
+    int dilateY = abs(parms.dilate / parms.y_next);
 
-            // for adaptive dilate value
-            int dilateX1, dilateX2, dilateYC;
-            int similar = parms.p2;
+    int dy;
+    Segment *seg = segs.data;
+    segs.end->ly = parms.height; // to avoid having to check for < segs.end
 
-            int opitch = Opitch * parms.y_next;
-            int ppitch = Ppitch * parms.y_next;
-            int npitch = Npitch * parms.y_next;
-            int cnpitch = parms.pitch * parms.y_next; // noise
+    // for adaptive dilate value
+    int dilateX1, dilateX2, dilateYC;
+    int similar = parms.p2;
 
-            memzero(c_noise, parms.size);
+    int opitch = Opitch * parms.y_next;
+    int ppitch = Ppitch * parms.y_next;
+    int npitch = Npitch * parms.y_next;
+    int cnpitch = parms.pitch * parms.y_next; // noise
 
-            o += opitch * dilateY; // skip first dilateY lines
-            p += ppitch * dilateY; //
-            n += npitch * dilateY; //
-            c_noise += cnpitch * dilateY;
+    memzero(c_noise, parms.size);
+
+    o += opitch * dilateY; // skip first dilateY lines
+    p += ppitch * dilateY; //
+    n += npitch * dilateY; //
+    c_noise += cnpitch * dilateY;
 
 
-            for (int y = dilateY * parms.y_next; y < parms.height - dilateY * parms.y_next; ++y) {
-                for (; seg->ly < y; ++seg) {   //skip segnents in skipped dilateY lines
-                    ;
+    for (int y = dilateY * parms.y_next; y < parms.height - dilateY * parms.y_next; ++y) {
+        for (; seg->ly < y; ++seg) {   //skip segnents in skipped dilateY lines
+            ;
+        }
+
+        for (; seg->ly == y; ++seg) {
+            if (seg->data.s.is_noise) {
+                int x1 = std::max<int>(seg->lx1, dilateX + 1 + blur);
+                int x2 = std::min<int>(seg->lx2, width - dilateX - 2 - blur);
+                if (parms.dilate < 0) {
+                    // constrained dilation
+                    dilateX1 = 0;
+                    for (int i = 1; i <= dilateX; i++) {
+                        if (abs(o[x1 - i] - o[x1]) > similar) break;
+                        dilateX1 = i;
+                    }
+                    dilateX2 = 0;
+                    for (int i = 1; i <= dilateX; i++) {
+                        if (abs(o[x1 + i] - o[x1]) > similar) break;
+                        dilateX2 = i;
+                    }
+                    x1 -= dilateX1;
+                    x2 += dilateX2;
+                    dilateYC = std::min(dilateY, std::max(dilateX1, dilateX2) / parms.y_next);
+                } else {
+                    // unconstrained dilation
+                    x1 -= dilateX;
+                    x2 += dilateX;
+                    dilateYC = dilateY;
                 }
 
-                for (; seg->ly == y; ++seg) {
-                    if (seg->data.s.is_noise) {
-                        int x1 = std::max<int>(seg->lx1, dilateX + 1 + blur);
-                        int x2 = std::min<int>(seg->lx2, width - dilateX - 2 - blur);
-                        if (parms.dilate < 0) {
-                            // constrained dilation
-                            dilateX1 = 0;
-                            for (int i = 1; i <= dilateX; i++) {
-                                if (abs(o[x1 - i] - o[x1]) > similar) break;
-                                dilateX1 = i;
+                // local (segment) luma correction to fit luma to neighbor pixels
+                if (fitluma) {
+                    if (y >= parms.y_next && y < parms.height - parms.y_next) {// middle lines
+                        lumaAdd = o[x1 - 1] + o[x2 + 1] - (p[x1 - 1] + p[x2 + 1] + n[x1 - 1] + n[x2 + 1]) +
+                            (o[x1 - 1 + opitch] + o[x2 + 1 + opitch] + o[x1 - 1 - opitch] + o[x2 + 1 - opitch]) / 2;
+                        lumaAdd /= 4;
+                    } else {
+                        lumaAdd = o[x1 - 1] + o[x2 + 1] - (p[x1 - 1] + p[x2 + 1] + n[x1 - 1] + n[x2 + 1]) / 2;
+                        lumaAdd /= 2;
+                    }
+                } else
+                    lumaAdd = 0;
+
+                for (int x = x1; x <= x2; ++x) {
+                    o[x] = std::min(std::max((p[x] + n[x]) / 2 + lumaAdd, 0), 255);
+                    c_noise[x] = 255;
+                }
+
+                if (parms.blur) segment_blur(o, x1, x2, blur, blurBuffer);
+
+                if (dilateYC > 0) {
+                    if (!(seg->what & B_LINK)) {// the most top master (or single), dilate to top
+                        for (dy = 0; dy < dilateYC; dy++) {
+                            o += (-opitch); // prev line
+                            p += (-ppitch);
+                            n += (-npitch);
+                            c_noise += (-cnpitch);
+                            for (int x = x1; x <= x2; ++x) {
+                                o[x] = std::min(std::max((p[x] + n[x]) / 2 + lumaAdd, 0), 255);
+                                c_noise[x] = 255;
                             }
-                            dilateX2 = 0;
-                            for (int i = 1; i <= dilateX; i++) {
-                                if (abs(o[x1 + i] - o[x1]) > similar) break;
-                                dilateX2 = i;
-                            }
-                            x1 -= dilateX1;
-                            x2 += dilateX2;
-                            dilateYC = std::min(dilateY, std::max(dilateX1, dilateX2) / parms.y_next);
-                        } else {
-                            // unconstrained dilation
-                            x1 -= dilateX;
-                            x2 += dilateX;
-                            dilateYC = dilateY;
+                            if (parms.blur) segment_blur(o, x1, x2, blur, blurBuffer);
                         }
-
-                        // local (segment) luma correction to fit luma to neighbor pixels
-                        if (fitluma) {
-                            if (y >= parms.y_next && y < parms.height - parms.y_next) {// middle lines
-                                lumaAdd = o[x1 - 1] + o[x2 + 1] - (p[x1 - 1] + p[x2 + 1] + n[x1 - 1] + n[x2 + 1]) +
-                                    (o[x1 - 1 + opitch] + o[x2 + 1 + opitch] + o[x1 - 1 - opitch] + o[x2 + 1 - opitch]) / 2;
-                                lumaAdd /= 4;
-                            } else {
-                                lumaAdd = o[x1 - 1] + o[x2 + 1] - (p[x1 - 1] + p[x2 + 1] + n[x1 - 1] + n[x2 + 1]) / 2;
-                                lumaAdd /= 2;
+                        o += opitch * dilateYC; // restore
+                        p += ppitch * dilateYC;
+                        n += npitch * dilateYC;
+                        c_noise += cnpitch * dilateYC;
+                    }
+                    if (!(seg->what & B_MASTER)) {   // the most bottom link (or single), dilate to bottom
+                        for (dy = 0; dy < dilateYC; dy++) {
+                            o += opitch; // next line
+                            p += ppitch;
+                            n += npitch;
+                            c_noise += cnpitch;
+                            for (int x = x1; x <= x2; ++x) {
+                                o[x] = std::min(std::max((p[x] + n[x]) / 2 + lumaAdd, 0), 255);
+                                c_noise[x] = 255;
                             }
-                        } else
-                            lumaAdd = 0;
-
-                        for (int x = x1; x <= x2; ++x) {
-                            o[x] = std::min(std::max((p[x] + n[x]) / 2 + lumaAdd, 0), 255);
-                            c_noise[x] = 255;
+                            if (parms.blur) segment_blur(o, x1, x2, blur, blurBuffer);
                         }
-
-                        if (parms.blur) segment_blur(o, x1, x2, blur, blurBuffer);
-
-                        if (dilateYC > 0) {
-                            if (!(seg->what & B_LINK)) {// the most top master (or single), dilate to top
-                                for (dy = 0; dy < dilateYC; dy++) {
-                                    o += (-opitch); // prev line
-                                    p += (-ppitch);
-                                    n += (-npitch);
-                                    c_noise += (-cnpitch);
-                                    for (int x = x1; x <= x2; ++x) {
-                                        o[x] = std::min(std::max((p[x] + n[x]) / 2 + lumaAdd, 0), 255);
-                                        c_noise[x] = 255;
-                                    }
-                                    if (parms.blur) segment_blur(o, x1, x2, blur, blurBuffer);
-                                }
-                                o += opitch * dilateYC; // restore
-                                p += ppitch * dilateYC;
-                                n += npitch * dilateYC;
-                                c_noise += cnpitch * dilateYC;
-                            }
-                            if (!(seg->what & B_MASTER)) {   // the most bottom link (or single), dilate to bottom
-                                for (dy = 0; dy < dilateYC; dy++) {
-                                    o += opitch; // next line
-                                    p += ppitch;
-                                    n += npitch;
-                                    c_noise += cnpitch;
-                                    for (int x = x1; x <= x2; ++x) {
-                                        o[x] = std::min(std::max((p[x] + n[x]) / 2 + lumaAdd, 0), 255);
-                                        c_noise[x] = 255;
-                                    }
-                                    if (parms.blur) segment_blur(o, x1, x2, blur, blurBuffer);
-                                }
-                                o += -opitch * dilateYC;// restore
-                                p += -ppitch * dilateYC;
-                                n += -npitch * dilateYC;
-                                c_noise += -cnpitch * dilateYC;
-                            }
-                        }
+                        o += -opitch * dilateYC;// restore
+                        p += -ppitch * dilateYC;
+                        n += -npitch * dilateYC;
+                        c_noise += -cnpitch * dilateYC;
                     }
                 }
-                p += Ppitch;
-                c += Cpitch;
-                n += Npitch;
-                o += Opitch;
-                c_noise += parms.pitch;
             }
-
         }
+        p += Ppitch;
+        c += Cpitch;
+        n += Npitch;
+        o += Opitch;
+        c_noise += parms.pitch;
+    }
 }
 
 
 //
-// set color at places of deleted spot to mean value - added in v.3.1
+// set color at places of deleted spot to mean value
 //
-void clean_color_plane(const BYTE *p, int ppitch, const BYTE *c, int cpitch, const BYTE *n, int npitch, int widthUV, int heightUV, BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT o, int opitch, Parms &Params) // added in v.3.1
+void clean_color_plane(const BYTE *p, int ppitch, const BYTE *c, int cpitch, const BYTE *n, int npitch, int widthUV, int heightUV, BYTE *VS_RESTRICT c_noise, BYTE *VS_RESTRICT o, int opitch, Parms &Params)
 {
     int mult = (1 << 10) / 3;
     int y_next = Params.y_next;
