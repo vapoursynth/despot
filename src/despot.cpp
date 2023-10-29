@@ -36,11 +36,12 @@ http://kevin.atkinson.dhs.org/temporal_median/
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <memory>
 
 struct WorkingData {
     int num = -1;
-    BYTE *noise = nullptr;
-    BYTE *motion = nullptr;
+    std::unique_ptr<BYTE[]> noise;
+    std::unique_ptr<BYTE[]> motion;
     Segment *segments = nullptr;
     void init(size_t);
     ~WorkingData();
@@ -53,7 +54,7 @@ struct Frame {
     const BYTE *y = nullptr; // Y plane of frame
     int pitch = 0; // pitch of Y plane
     BYTE *noise = nullptr;
-    BYTE *motion = 0;
+    BYTE *motion = nullptr;
     Segments segments;
 };
 
@@ -76,13 +77,15 @@ struct Buffer {
     }
 
     void alloc_noise(Frame *f) {
-        if (!f->data) ready_data(f);
-        f->noise = f->data->noise;
+        if (!f->data)
+            ready_data(f);
+        f->noise = f->data->noise.get();
     }
 
     void alloc_motion(Frame *f) {
-        if (!f->data) ready_data(f);
-        f->motion = f->data->motion;
+        if (!f->data)
+            ready_data(f);
+        f->motion = f->data->motion.get();
     }
 
     void alloc_segments(Frame *f) {
@@ -173,7 +176,6 @@ Filter::Filter(PClip _child, PClip _extmask, Parms _Params, IScriptEnvironment *
 }
 
 Filter::~Filter() {
-    free(buf.motion);
     if (outfile_ptr) {
         fclose(outfile_ptr);
         outfile_ptr = nullptr;
@@ -521,15 +523,13 @@ extern "C" __declspec(dllexport) const char *__stdcall AvisynthPluginInit3(IScri
 //
 
 void WorkingData::init(size_t s) {
-    noise = (BYTE *)malloc(s);
-    motion = (BYTE *)malloc(s);
+    noise = std::make_unique<BYTE[]>(s);
+    motion = std::make_unique<BYTE[]>(s);
     segments = (Segment *)malloc(sizeof(Segment) * (s / 2 + 1));
 }
 
 WorkingData::~WorkingData() {
-    if (noise)   free(noise);
-    if (motion)  free(motion);
-    if (segments) free(segments);
+    free(segments);
 }
 
 void Buffer::ready_frame(int n, Frame *f, IScriptEnvironment *env) {
@@ -548,19 +548,20 @@ void Buffer::ready_data(Frame *f) {
 }
 
 void Buffer::free_frame(Frame *f) {
-    if (f->data) free_data(f->data);
+    if (f->data)
+        free_data(f->data);
     f->num = -1;
-    f->frame = 0;
+    f->frame = nullptr;
     f->y = 0;
 }
 
 void Buffer::free_data(WorkingData *d) {
     Frame *f = frame_cache + d->num % 16;
     if (f->num == d->num) {
-        f->data = 0;
-        f->noise = 0;
-        f->motion = 0;
-        f->segments.data = 0;
+        f->data = nullptr;
+        f->noise = nullptr;
+        f->motion = nullptr;
+        f->segments.data = nullptr;
         f->segments.clear();
     }
     d->num = -1;
