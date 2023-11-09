@@ -38,6 +38,30 @@ http://kevin.atkinson.dhs.org/temporal_median/
 #include <cmath>
 #include <memory>
 
+constexpr char ass_script[] = "[Script Info]\n"
+"Title: DeSpot automatically generated file\n"
+"ScriptType: v4.00+\n"
+"WrapStyle: 0\n"
+"PlayResX: %d\n"
+"PlayResY: %d\n"
+"ScaledBorderAndShadow: yes\n"
+"Video Aspect Ratio: 0\n"
+"Video Zoom: 8\n"
+"Video Position: 0\n"
+"\n"
+"[V4+ Styles]\n"
+"Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+"Style: Mask,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1\n"
+"Style: Outline,Arial,20,&HFFFFFFFF,&H000000FF,&H00FF00FF,&H00000000,0,0,0,0,100,100,0,0,1,%d,0,7,0,0,0,1\n"
+"\n"
+"[Events]\n"
+"Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+"Comment: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,--- Templates for manual editing ---\n"
+"Dialogue: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,{\\pos(100,100)\\fscx100\\fscy100\\p1}m -4 -4 l 4 -4 4 4 -4 4{\\p0}\n"
+"Dialogue: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,{\\pos(100,100)\\fscx100\\fscy100\\p1}m -6 -6 l 6 -6 6 6 -6 6{\\p0}\n"
+"Dialogue: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,{\\pos(100,100)\\fscx100\\fscy100\\p1}m -8 -8 l 8 -8 8 8 -8 8{\\p0}\n"
+"Comment: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,--- Masks ---\n";
+
 struct WorkingData {
     int num = -1;
     std::unique_ptr<BYTE[]> noise;
@@ -145,29 +169,7 @@ Filter::Filter(PClip _child, PClip _extmask, Parms _Params, IScriptEnvironment *
         if (!outfile_ptr)
             env->ThrowError("DeSpot: failed to open %s for writing", Params.outfilename.c_str());
         fprintf(outfile_ptr,
-            "[Script Info]\n"
-            "Title: DeSpot automatically generated file\n"
-            "ScriptType: v4.00+\n"
-            "WrapStyle: 0\n"
-            "PlayResX: %d\n"
-            "PlayResY: %d\n"
-            "ScaledBorderAndShadow: yes\n"
-            "Video Aspect Ratio: 0\n"
-            "Video Zoom: 8\n"
-            "Video Position: 0\n"
-            "\n"
-            "[V4+ Styles]\n"
-            "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-            "Style: Mask,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1\n"
-            "Style: Outline,Arial,20,&HFFFFFFFF,&H000000FF,&H00FF00FF,&H00000000,0,0,0,0,100,100,0,0,1,%d,0,7,0,0,0,1\n"
-            "\n"
-            "[Events]\n"
-            "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
-            "Comment: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,--- Templates for manual editing ---\n"
-            "Dialogue: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,{\\pos(100,100)\\fscx100\\fscy100\\p1}m -4 -4 l 4 -4 4 4 -4 4{\\p0}\n"
-            "Dialogue: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,{\\pos(100,100)\\fscx100\\fscy100\\p1}m -6 -6 l 6 -6 6 6 -6 6{\\p0}\n"
-            "Dialogue: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,{\\pos(100,100)\\fscx100\\fscy100\\p1}m -8 -8 l 8 -8 8 8 -8 8{\\p0}\n"
-            "Comment: 0,0:00:00.00,0:00:00.00,Mask,,0,0,0,,--- Masks ---\n",
+            ass_script,
             vi.width,
             vi.height,
             thickness
